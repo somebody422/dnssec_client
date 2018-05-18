@@ -2,8 +2,7 @@ its finally time to learn git
 
 
 CURRENTLY: https://www.atlassian.com/git/tutorials
-doing the 'git tag' stuff
-https://www.atlassian.com/git/tutorials/inspecting-a-repository/git-tag
+
 
 HEAD - a ref stored in .git/HEAD. Refers to the commit or branch which is currently checked out (what files are actually in our working directory)
 
@@ -36,7 +35,11 @@ some common patterns:
 Detached head state - This is a problem that happens when you checkout a specific commit (using a hash or ref) that does not correspond to a branch ref. Because HEAD is not pointing to a branch, if you make changes then commit, the changes may be lost forever!
 
 
-'git reset COMMIT' - move HEAD and the current branch head to COMMIT. Will update the staging index, working directory, and commit history. 
+'git reset --hard COMMIT' - move HEAD and the current branch head to COMMIT. Will update the staging index, working directory, and commit history. Trying to push this to a remote repository may throw an error, however: for that use 'git revert' instead
+'git reset FILE' or 'git reset COMMIT FILE' is very different! Essentially this will reset the the file in the staging area to that commit. Without a commit argument it will default to HEAD, and is the recommended way to un-stage a file
+
+'git revert COMMIT' - Undo some changes without losing them in the git history (like you would with 'git reset --hard'). It generates a "reverse commit" which will undo the changes made in COMMIT. Add the --no-commit flag to stage but not commit the changes.
+If you want to generate a compound "reverse commit", then run 'git revert COMMIT --no-commit' on the most recent one, then the next oldest, ect. Finally, commit the combined changes.
 
 
 'git init' - initialize this as a git repository (.git directory)
