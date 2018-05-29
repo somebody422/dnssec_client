@@ -29,14 +29,33 @@ some common patterns:
 
  If you want to have a "gitignore" kind of effect without other users of the repository having it, add your patterns to .git/info/exclude
 
+'git checkout BRANCH' - The usual way we move between local branches.
+'git checkout -b NEW_BRANCH <EXISTING_BRANCH>' - convience method to make a new branch. if EXISTING_BRANCH is provided, the new branch will be a copy of that. Otherwise it is a copy of HEAD
 
-'git checkout COMMIT' - Move HEAD to the given commit. This will update the files in the working directory to match the given commit. Usually you provide a branch as the argument.. if you give it a non-branch commit that will put you into a detached head state!
+'git checkout COMMIT' - Move HEAD to the given commit. This will update the files in the working directory to match the given commit. If you give it a non-branch commit that will put you into a detached head state!
+
+'git checkout FILE' - Different from the commit checkout. Will grab that file from HEAD. You can use this to just revert changes you have made to a file.
+
+.git/objects - keys for an internal hashmap. There are a bunch of directories here. For a simple object (usually a commit?), the directory name is the first 2 letters of the SHA hash, and the file name is the rest of the hash. There are more but I don't feel like reading it: https://git-scm.com/book/en/v2/Git-Internals-Git-Objects
+
+'git fetch REMOTE BRANCH' - downloads the branch info. These commits will be saved into the .git/objects directory so you can now check them out. However a local branch will NOT be created, so this does not change your local history.
+To get a local branch into your repository, it might look like this. This assumes you don't have the remote set up yet:
+'git remote remote_repository_1 git@remotesite.com:path/to/repo.git'
+'git fetch remote_repository_1 progress_remote_branch'
+'git checkout progress_remote_branch' to put repo in detached head state, and check out the contents of this branch.
+'git checkout -b progress_local_branch' to create a new local branch.
+There may be a way to combine the 2 checkouts into 1 command?
+
+It is worth noting that 'git pull' is pretty much a fetch followed by a merge!
 
 Detached head state - This is a problem that happens when you checkout a specific commit (using a hash or ref) that does not correspond to a branch ref. Because HEAD is not pointing to a branch, if you make changes then commit, the changes may be lost forever!
 
+'git merge BRANCH' - Will attempt to bring changes made in BRANCH to the current branch. Git does this by finding the best (first?) common ansestor (this is the commit before they branched off, or earlier) then looking at the changes since then. It will then create a commit which brings the changes made in BRANCH in. If both branches modified the same line/section of a file, there will be a conflict. Use a text editor to fix the conflicts to your liking, do some 'git add' then do a 'git commit'.
+Fast forward merge - Merging B2 into B. If B has had no changes since B2 was created, git can just move the B pointer to B2. Very easy!
+
 
 'git reset --hard COMMIT' - move HEAD and the current branch head to COMMIT. Will update the staging index, working directory, and commit history. Trying to push this to a remote repository may throw an error, however: for that use 'git revert' instead
-'git reset FILE' or 'git reset COMMIT FILE' is very different! Essentially this will reset the the file in the staging area to that commit. Without a commit argument it will default to HEAD, and is the recommended way to un-stage a file
+'git reset FILE' or 'git reset COMMIT FILE' is different! Essentially this will reset the the file in the staging area to that commit. Without a commit argument it will default to HEAD, and is the recommended way to un-stage a file
 
 'git revert COMMIT' - Undo some changes without losing them in the git history (like you would with 'git reset --hard'). It generates a "reverse commit" which will undo the changes made in COMMIT. Add the --no-commit flag to stage but not commit the changes.
 If you want to generate a compound "reverse commit", then run 'git revert COMMIT --no-commit' on the most recent one, then the next oldest, ect. Finally, commit the combined changes.
