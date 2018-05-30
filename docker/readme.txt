@@ -1,11 +1,21 @@
 DOCKER!
 
 
-looks like it sucks on windows, learn how to use it on linux later
+Docker is way to big (memory and disk usage wise) to run on my laptop. Continue this on desktop, or at work
 
 
 
 
-image - a package contining all the code, libraries, configs, ect, to run the applications
+image - a package contining all the code, libraries, configs, ect, to run the application
 
 container - runtime instantiantiation of an image.
+
+
+
+'docker info' - 
+
+
+
+
+
+
