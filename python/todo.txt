@@ -1,0 +1,8 @@
+
+* iterables and generators.
+yield keyword too
+
+
+
+
+
