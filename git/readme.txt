@@ -31,6 +31,7 @@ some common patterns:
 
 'git checkout BRANCH' - The usual way we move between local branches.
 'git checkout -b NEW_BRANCH <EXISTING_BRANCH>' - convience method to make a new branch. if EXISTING_BRANCH is provided, the new branch will be a copy of that. Otherwise it is a copy of HEAD
+'check checkout --track REMOTE/BRANCH' - Checkout and track a remote branch
 
 'git checkout COMMIT' - Move HEAD to the given commit. This will update the files in the working directory to match the given commit. If you give it a non-branch commit that will put you into a detached head state!
 
