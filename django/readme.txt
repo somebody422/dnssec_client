@@ -37,4 +37,7 @@ Generic views - subclass you view classes with a generic view to speed up develo
 https://docs.djangoproject.com/en/1.11/ref/class-based-views/generic-display/
 
 
+Interacting with the database:
+Manager - An object which is used to interact with a database. Each model class will have a manager object at Class.objects by default.
+QuerySet - A collection of objects grabbed from the database.
 

@@ -37,6 +37,9 @@ some common patterns:
 
 'git checkout FILE' - Different from the commit checkout. Will grab that file from HEAD. You can use this to just revert changes you have made to a file.
 
+'git branch -d BRANCH' - delete a branch locally
+'git push REMOTE --delte BRANCH' - delete a branch on a remote
+
 .git/objects - keys for an internal hashmap. There are a bunch of directories here. For a simple object (usually a commit?), the directory name is the first 2 letters of the SHA hash, and the file name is the rest of the hash. There are more but I don't feel like reading it: https://git-scm.com/book/en/v2/Git-Internals-Git-Objects
 
 'git fetch REMOTE BRANCH' - downloads the branch info. These commits will be saved into the .git/objects directory so you can now check them out. However a local branch will NOT be created, so this does not change your local history.
@@ -54,6 +57,12 @@ Detached head state - This is a problem that happens when you checkout a specifi
 'git merge BRANCH' - Will attempt to bring changes made in BRANCH to the current branch. Git does this by finding the best (first?) common ansestor (this is the commit before they branched off, or earlier) then looking at the changes since then. It will then create a commit which brings the changes made in BRANCH in. If both branches modified the same line/section of a file, there will be a conflict. Use a text editor to fix the conflicts to your liking, do some 'git add' then do a 'git commit'.
 Fast forward merge - Merging B2 into B. If B has had no changes since B2 was created, git can just move the B pointer to B2. Very easy!
 
+stashing - 
+'git stash save' OR 'git stash' - saves the state of your working directory. --include-untracked option will also stash untracked files
+'git stash list' - list current saved stashes
+'git stash apply [STASH]' - applies STASH or the most recently saved stash to the current branch.
+'git stash drop STASH' - remove STASH from the saved list
+'git stash pop STASH' - apply then drop stash
 
 'git reset --hard COMMIT' - move HEAD and the current branch head to COMMIT. Will update the staging index, working directory, and commit history. Trying to push this to a remote repository may throw an error, however: for that use 'git revert' instead
 'git reset FILE' or 'git reset COMMIT FILE' is different! Essentially this will reset the the file in the staging area to that commit. Without a commit argument it will default to HEAD, and is the recommended way to un-stage a file
