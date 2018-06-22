@@ -8,6 +8,7 @@ Same example with a regex instead (assuming your distribution supports regexes):
 'SELECT * FROM table WHERE name REGEXP '^s..''
 
 'SELECT column1, column2' FROM table, WHERE condition ORDER BY column
+'SELECt c1,c2 FROM table WHERE EXISTS (subquery...)' - EXISTS will return FALSE iff subquery returns no rows
 
 'SHOW DATABASES' - show all databases
 
@@ -16,12 +17,18 @@ Same example with a regex instead (assuming your distribution supports regexes):
 'DESCRIBE table' - describe the columns of table
 
 'CREATE TABLE name (field1 type, field2 type, field3 type, ...);'
+'CREATE TABLE table1 LIKE table2' - creates a table with the same columns as table2
 
 If giving values for only some of the columns, you have to specify which columns. Otherwise it is assumed that each row is filled.
 'INSERT INTO table (c1, c2, c5, c6) VALUES (v1, v2, v5, v6)'
 'INSERT INTO table VALUES (v1, v2, v3, v4, v5, v6)'
+'INSERT INTO table SELECT col1, col2 FROM table2 WHERE condition'
+
+'REPLACE INTO table VALUES (v1, v2, v3, v4, v5, v6)' - REPLACE INTO is exactly like INSERT INTO, except if a row with the primary key already exists it will be deleted and replaced
 
 'UPDATE table SET col1 = val1, col2=val2 WHERE condition' - statement to change rows in a table
+
+'DELETE FROM table WHERE condition' - delete rows from a table. BEWARE: leaving out the where part will just delete all rows
 
 Alter table can be used to do a couple of things:
 'ALTER TABLE table variable = value' - will update a table var such as ROW_FORMAT, TABLESPACE, MAX_ROWS, ect.
