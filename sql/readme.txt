@@ -29,13 +29,30 @@ If giving values for only some of the columns, you have to specify which columns
 'UPDATE table SET col1 = val1, col2=val2 WHERE condition' - statement to change rows in a table
 
 'DELETE FROM table WHERE condition' - delete rows from a table. BEWARE: leaving out the where part will just delete all rows
+'DELETE FROM table WHERE condition LIMIT n' - delete up to n rows. Leave out the condition to just delete n arbitraty rows
 
 Alter table can be used to do a couple of things:
 'ALTER TABLE table variable = value' - will update a table var such as ROW_FORMAT, TABLESPACE, MAX_ROWS, ect.
-'ALTER TABLE table ADD column_name type'
-'ALTER TABLE table DROP column_name'
+'ALTER TABLE table ADD COLUMN column_name type'
+'ALTER TABLE table DROP COLUMN column_name'
 'ALTER TABLE table MODIFY COLUMN column type' - change type of column
 'ALTER TABLE TABLE RENAME COLUMN column TO new_name'
+
+
+===================================
+=-=--= Table Relationships: -=-=-=-
+===================================
+https://code.tutsplus.com/articles/sql-for-beginners-part-3-database-relationships--net-8561
+
+Foreign key (FK) - field/column which is the primary key of some other table.
+
+One-to-one relationship: One of tables will have FK to other table
+Not all that common, because you could have just made one big table
+
+One-to-many: The "many table" will have FK to "one table". Several rows from the many table could reference the same one table row
+
+Many-to-many: Between tables t1 and t2. Create a third "relationship" table, where each row has FK to t1 AND FK to t2.
+
 
 ===================================
 =-=--=- Tips / Gotchas: -=-=-=-=-=-
