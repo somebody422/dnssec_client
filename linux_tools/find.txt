@@ -2,6 +2,9 @@
 example for searching all python files for the string "str":
 'find . -name '*.py' -exec grep --color 'str' {} \;
 
+Also print line numbers and file names. Grep will print filenames when there are multiple files provided as arguments. the '+' at the end of the '-exec grep ...' means that as many arguments will be provided as possible
+'find . -name '*.py' -exec grep --color -n 'str' {} \+
+
 'find PATH EXPRESSION'
 
 Expression is divided into "primaries" and "operators". primaries provide some condition on a file matching. Operators are just logical operators like and, not, or, all used to modify / tie together primaries
