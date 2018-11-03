@@ -1,0 +1,25 @@
+
+
+cheatsheet:
+https://gist.github.com/henrik/1967800
+
+tmux is a terminal emulator, more or less replacing 'screen'
+
+Session - A named tmux session. Just typing "tmux" will create a new one.
+Window - Takes up the whole screen. A session can have a bunch of windows
+Pane - A window can be broken up into a bunch of panes, using horizontal and vertical splits
+
+
+Subcommands: Most of these will be called using the ctl-b-: prompt from within tmux (without the 'tmux' prefix)
+'tmux ls' - list current sessions
+'tmux attach-session -t NAME' - attach session NAME
+'tmux rename-session -t OLD_NAME NEW_NAME'
+
+
+
+Within a session, ctl-b is the tmux escape key. Type shortcuts after that or ':' to type at the tmux prompt
+
+ctl-b:
+	* d - detatch the current session
+	* $ - rename current session
+
