@@ -1,0 +1,47 @@
+https://wiki.archlinux.org/index.php/Partitioning
+
+
+
+There are 2 standard schemes for partitioning a disk:
+	* Master Boot Record (MBR) - This is the older one.
+		- The first 512 bytes are the actual MBR, which contains a bootloader for the OS and the parition info. BIOS (or whatever starts up the pc) will use this loader
+		- 3 types of partition:
+			* Primary - Pretty much a regular partition. I'm guessing this was just a "partition" until someone was like "oh shit we need more than 4"
+			Also you can only have 4
+			* Extended - one of the primary can be dubbed an "extended" partition. can only have one of these
+			* Logical - sub-partitions inside an extended partition
+	* GUID Partition Table (GPT) - Meant to replace MBR
+		- If you boot with BIOS (instead of UEFI), must have a BIOS boot partition!! GUID is made to work well with UEFI.
+		- GPT also uses the first bunch of bytes in the disk for bootloader and partition info
+
+
+====== FDISK ======
+fdisk is the de facto way to partition disks in linux
+
+'fdisk -l' - list disks and partitions
+
+'fdisk DEVICE' - start fdisk session on device
+
+fdisk commands:
+	* p - Print the partition table
+	* w - Write changes to the disk
+	* q - Quit, don't save anything
+	* n - Create a new partition
+	* d - Delete a partition
+
+
+========= Formatting  ==========
+After setting partitions, format the disk
+'mkfs.FORMAT_TYPE DEVICE' - EX: 'mkfs.ext4 /dev/sda1'
+For swap space use the following:
+	'mkswap DEVICE'
+	'swapon DEVICE'
+
+
+
+======== Bootloader ========
+You will need to install a bootloader
+
+Grub for GPT: 'grub-install DEVICE'
+Then create the config. This has to be done any time you change grub settings or files
+'grub-mkconfig -o /boot/grub/grub.cfg'

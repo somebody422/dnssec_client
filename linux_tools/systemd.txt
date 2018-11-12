@@ -30,6 +30,9 @@ Inside the unit (unit file / script), it is broken up into sections, each sectio
 	[Service], [Socket], [Mount], ect.. - These are specific to the unit type.
 
 
+@ in service name - At sign will provide a way to easily add services on top of a base one. If you have foo@.service defined, and someone tried to start foo@bar.service, then the unit for foo@.service will be called with "bar" as an argument! The name of the running service will be foo@bar.service.
+An example: /lib/systemd/system/netctl@.service in arch. An example network configuration is netctl@mywireless.service. starting this will start up the generic unit file, which then calls '/usr/lib/netctl/network start mywireless'
+
 
 ---------- usage ------------------
 systemctl is the magic command for interacting with systemd
