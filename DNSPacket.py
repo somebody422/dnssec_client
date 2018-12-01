@@ -35,39 +35,55 @@ class DNSPacket:
     HEADER_LEN = 12
 
     default_header = bytes.fromhex('0001 0100 0001 0000 0000 0000')
+    # dnssec needs to have the OPT additional RR included
+    default_dnssec_header = bytes.fromhex('0001 0100 0001 0000 0000 0001')
 
     def __init__(self):
         self.header = bytearray(DNSPacket.HEADER_LEN)
 
+
+    def createDnsHeader(self, num_questions, num_answers, num_ns, num_additional):
+        return struct.pack(
+            '!HHHHHH',
+            1,  # just use an ID of 1
+            # The flags section. "0x0100" will assert the "recursion desired" bit, and leave everything else at 0
+            0x0100,
+            num_questions,
+            num_answers,
+            num_ns,
+            num_additional,
+        )
+
+    #def createQuestionRR(self, )
+
     # Factory method to return a DNSPacket
     # Create a new DNSPacket for a query. The type can be set using parameters
     @classmethod
-    def newQuery(cls, url, question_type):
+    def newQuery(cls, url, question_type, using_dnssec=False):
         packet = cls()
         # Fill out the "question" or "query" section.
         url_split = url.split('.')
-        # QNAME section has length len(url)+2. The rest of the query section is 4 bytes
-        packet.query_bytes = bytearray(len(url) + 6)
 
-        # First, fill in QNAME section, which holds the url. This consists of number of labels, one for each domain.
-        # Each label is 1 byte telling the # of characters in the next domain, then the ASCII bytes 0x00 ends the
-        # section
+        # First, get the header
+        if using_dnssec:
+            header = packet.createDnsHeader(1, 0, 0, 1)
+        else:
+            header = packet.createDnsHeader(1, 0, 0, 0)
+
+        # Create the QNAME section, which holds the url. This consists of number of labels, one for each domain.
+        # Each label is 1 byte telling the # of characters in the next domain, then the ASCII bytes 0x00 ends the section
+        question_qname = bytearray(len(url) + 2)
         i = 0
         for domain in url_split:
-            packet.query_bytes[i] = len(domain)
+            question_qname[i] = len(domain)
             i += 1
-            insertBytes(packet.query_bytes, domain.encode('utf-8', 'strict'), i)
+            insertBytes(question_qname, domain.encode('utf-8', 'strict'), i)
             i += len(domain)
-        packet.query_bytes[i] = 0x00
-        i += 1
-        # Next comes the QTYPE section:
-        insertBytes(packet.query_bytes, question_type.to_bytes(2, byteorder='big'), i)
-        i += 2
-        # The QCLASS section. This should always be 1
-        insertBytes(packet.query_bytes, bytes([0, 1]), i)
-        # i += 2
+        print("question_qname:", question_qname)
+        question_bytes = struct.pack("!{0}sHH".format(len(question_qname)), question_qname, question_type, 1)
+        print("question_bytes:", question_bytes)
 
-        packet.bytes = DNSPacket.default_header + packet.query_bytes
+        packet.bytes = header + question_bytes
         return packet
 
     # Factory method to return a DNSPacket
@@ -177,31 +193,12 @@ class DNSPacket:
                         i += num_bytes
                         # print("Read domain:", domain[len(domain) - 1].decode('utf-8'))
 
-            """
-            answer['type'] = int.from_bytes(b[i:i + 2], 'big')
-            print("Type:", answer['type'], b[i:i + 2])
-            i += 2
-
-            answer['class'] = int.from_bytes(b[i:i + 2], 'big')
-            print("Class:", answer['class'], b[i:i + 2])
-            i += 2
-
-            answer['ttl'] = int.from_bytes(b[i:i + 4], 'big')
-            print("TTL:", answer['ttl'], b[i:i + 4])
-            i += 4
-
-            answer['rdata_len'] = int.from_bytes(b[i:i + 2], 'big')
-            print("rdata len:", answer['rdata_len'], b[i:i + 2])
-            i += 2
-            """
-
 
             # ! = indicates "network" byte order and int sizes
             # I = unsigned int, 4 bytes
             # H = unisigned short, 2 bytes
             # B = unsigned char, 1 byte
             (answer['type'], answer['class'], answer['ttl'], answer['rdata_len']) = struct.unpack("!HHIH", b[i:i+10])
-            #answer['type']
             print("Type:", answer['type'], b[i:i + 2])
             print("Class:", answer['class'], b[i:i + 2])
             print("TTL:", answer['ttl'], b[i:i + 4])
@@ -231,6 +228,25 @@ class DNSPacket:
 
             packet.answers.append(answer)
         return packet
+
+
+
+    # Builds and returns an OPT RR record. The record can then be copied into the main buffer.
+    def createOptRecord(self):
+        # TODO: the name should be "0 (root domain)", does that just mean a 1-byte zero?
+        return struct.pack(
+            '!BHHIH', # I am not including the RDATA field!
+            # name label. In this case we are referring to the "root domain", which means a 0-length string
+            0,
+            41,  # TYPE = OPT
+            # This is the "Class" field. In opt records it is used for the requested UDP payload size.
+            # Up this if there are fragmentation issues
+            1024,
+            # This is the "TTL" field. In opt records the D0 flag goes here, and the rest is zero'd
+            0x80000000,
+            0,  # length of RDATA section
+            #0,  # Not included because rdata length is 0!
+        )
 
 
 # For testing
