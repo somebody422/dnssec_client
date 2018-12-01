@@ -34,7 +34,7 @@ def main():
     address = (ip, port)
 
     connection = UDPCommunication()
-    query = DNSPacket.newQuery(args['name'], DNSPacket.TYPE_A, using_dnssec=False)
+    query = DNSPacket.newQuery(args['name'], DNSPacket.TYPE_A, using_dnssec=True)
     connection.sendPacket(address, query.bytes)
     connection.listen()
 

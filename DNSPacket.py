@@ -54,8 +54,6 @@ class DNSPacket:
             num_additional,
         )
 
-    #def createQuestionRR(self, )
-
     # Factory method to return a DNSPacket
     # Create a new DNSPacket for a query. The type can be set using parameters
     @classmethod
@@ -83,7 +81,10 @@ class DNSPacket:
         question_bytes = struct.pack("!{0}sHH".format(len(question_qname)), question_qname, question_type, 1)
         print("question_bytes:", question_bytes)
 
-        packet.bytes = header + question_bytes
+        if using_dnssec:
+            packet.bytes = header + question_bytes + packet.createOptRecord()
+        else:
+            packet.bytes = header + question_bytes
         return packet
 
     # Factory method to return a DNSPacket
