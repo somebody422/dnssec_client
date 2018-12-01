@@ -34,25 +34,10 @@ class DNSPacket:
     TYPE_CNAME = 5
     HEADER_LEN = 12
 
-    default_header = bytes.fromhex('0001 0100 0001 0000 0000 0000')
-    # dnssec needs to have the OPT additional RR included
-    default_dnssec_header = bytes.fromhex('0001 0100 0001 0000 0000 0001')
 
     def __init__(self):
         self.header = bytearray(DNSPacket.HEADER_LEN)
 
-
-    def createDnsHeader(self, num_questions, num_answers, num_ns, num_additional):
-        return struct.pack(
-            '!HHHHHH',
-            1,  # just use an ID of 1
-            # The flags section. "0x0100" will assert the "recursion desired" bit, and leave everything else at 0
-            0x0100,
-            num_questions,
-            num_answers,
-            num_ns,
-            num_additional,
-        )
 
     # Factory method to return a DNSPacket
     # Create a new DNSPacket for a query. The type can be set using parameters
@@ -232,6 +217,19 @@ class DNSPacket:
 
 
 
+    def createDnsHeader(self, num_questions, num_answers, num_ns, num_additional):
+        return struct.pack(
+            '!HHHHHH',
+            1,  # just use an ID of 1
+            # The flags section. "0x0100" will assert the "recursion desired" bit, and leave everything else at 0
+            0x0100,
+            num_questions,
+            num_answers,
+            num_ns,
+            num_additional,
+        )
+
+
     # Builds and returns an OPT RR record. The record can then be copied into the main buffer.
     def createOptRecord(self):
         # TODO: the name should be "0 (root domain)", does that just mean a 1-byte zero?
@@ -251,5 +249,5 @@ class DNSPacket:
 
 
 # For testing
-if __name__ == '__main__':
-    DNSPacket.newFromBytes(DNSPacket.default_header)
+#if __name__ == '__main__':
+    #DNSPacket.newFromBytes(DNSPacket.default_header)
