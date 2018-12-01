@@ -2,6 +2,7 @@
 Represents a DNS packet. Will build a query to send to server, or parse through a server's response.
 """
 
+import struct
 from util import bytes_to_str, insertBytes
 
 
@@ -75,6 +76,16 @@ class DNSPacket:
     @classmethod
     def newFromBytes(cls, b, packet_id=0):
         packet = cls()
+
+
+        # TESTING: Figuring out struct stuff here
+        # ! = indicates "network" byte order and int sizes
+        # H = unisigned short, 2 bytes
+        # B = unsigned char, 1 byte
+        print("len =", len(b))
+        (s_id, s_temp, s_qdcount, s_ancount, s_nscount, s_arcount) = struct.unpack("!HHHHHH", b[:12])
+        print(s_id, s_temp, s_qdcount, s_ancount, s_nscount, s_arcount)
+
         # First parse out the header
         packet.id = int.from_bytes(b[:2], 'big')
         if packet_id != 0 and packet.id != packet_id:
@@ -109,14 +120,14 @@ class DNSPacket:
         packet.questions = []
         packet.answers = []
         # Not really interested in authority_records or additional_records
-        # print("ID =", packet.id)
-        # print("num_questions =", packet.num_questions)
-        # print("num_answers =", packet.num_answers)
-        # print("num_authority_records =", packet.num_authority_records)
-        # print("num_additional_records =", packet.num_additional_records)
-        # print("QR: ", packet.qr)
-        # print("Opcode: ", packet.opcode)
-        # print("AA: ", packet.aa)
+        print("ID =", packet.id)
+        print("num_questions =", packet.num_questions)
+        print("num_answers =", packet.num_answers)
+        print("num_authority_records =", packet.num_authority_records)
+        print("num_additional_records =", packet.num_additional_records)
+        print("QR: ", packet.qr)
+        print("Opcode: ", packet.opcode)
+        print("AA: ", packet.aa)
 
         i = cls.HEADER_LEN
         # Parse through question section. We aren't interested in the data here, just move to the answer section
@@ -140,6 +151,8 @@ class DNSPacket:
 
         # print("-- Now reading answers --")
         # Parse answers:
+
+
         packet.answers = []
         for _ in range(packet.num_answers):
             answer = {}
@@ -164,21 +177,37 @@ class DNSPacket:
                         i += num_bytes
                         # print("Read domain:", domain[len(domain) - 1].decode('utf-8'))
 
+            """
             answer['type'] = int.from_bytes(b[i:i + 2], 'big')
-            # print("Type:", answer['type'], b[i:i + 2])
+            print("Type:", answer['type'], b[i:i + 2])
             i += 2
 
             answer['class'] = int.from_bytes(b[i:i + 2], 'big')
-            # print("Class:", answer['class'], b[i:i + 2])
+            print("Class:", answer['class'], b[i:i + 2])
             i += 2
 
             answer['ttl'] = int.from_bytes(b[i:i + 4], 'big')
-            # print("TTL:", answer['ttl'], b[i:i + 4])
+            print("TTL:", answer['ttl'], b[i:i + 4])
             i += 4
 
             answer['rdata_len'] = int.from_bytes(b[i:i + 2], 'big')
-            # print("rdata len:", answer['rdata_len'], b[i:i + 2])
+            print("rdata len:", answer['rdata_len'], b[i:i + 2])
             i += 2
+            """
+
+
+            # ! = indicates "network" byte order and int sizes
+            # I = unsigned int, 4 bytes
+            # H = unisigned short, 2 bytes
+            # B = unsigned char, 1 byte
+            (answer['type'], answer['class'], answer['ttl'], answer['rdata_len']) = struct.unpack("!HHIH", b[i:i+10])
+            #answer['type']
+            print("Type:", answer['type'], b[i:i + 2])
+            print("Class:", answer['class'], b[i:i + 2])
+            print("TTL:", answer['ttl'], b[i:i + 4])
+            print("rdata len:", answer['rdata_len'], b[i:i + 2])
+            i += 10
+
 
             if answer['type'] == cls.TYPE_A:
                 if answer['rdata_len'] == 4:
@@ -187,6 +216,9 @@ class DNSPacket:
                     # TODO: Not sure if auth//noauth thing is supposed to be like this
                     print("IP\t{0}.{1}.{2}.{3}\t{4}".format(answer['ip_addr'][0], answer['ip_addr'][1], answer['ip_addr'][2],
                                                        answer['ip_addr'][3], "auth" if packet.aa else "noauth"))
+                    
+
+
                 else:
                     print("Error\trdata length should be 4")
                     return
