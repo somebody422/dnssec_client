@@ -3,7 +3,7 @@ Represents a DNS packet. Will build a query to send to server, or parse through 
 """
 
 import struct
-from util import bytes_to_str, insertBytes
+from util import bytes_to_str, insertBytes, dump_packet
 
 
 RCODE = {0: 'No error. The request completed successfully.',
@@ -30,8 +30,11 @@ RCODE = {0: 'No error. The request completed successfully.',
 
 
 class DNSPacket:
-    TYPE_A = 1
-    TYPE_CNAME = 5
+    RR_TYPE_A = 1
+    RR_TYPE_CNAME = 5
+    RR_TYPE_DNSKEY = 48
+    RR_TYPE_RRSIG = 46
+
     HEADER_LEN = 12
 
 
@@ -53,6 +56,9 @@ class DNSPacket:
         else:
             header = packet.createDnsHeader(1, 0, 0, 0)
 
+
+        question = packet.createQuestion(url, question_type)
+        """
         # Create the QNAME section, which holds the url. This consists of number of labels, one for each domain.
         # Each label is 1 byte telling the # of characters in the next domain, then the ASCII bytes 0x00 ends the section
         question_qname = bytearray(len(url) + 2)
@@ -65,11 +71,12 @@ class DNSPacket:
         print("question_qname:", question_qname)
         question_bytes = struct.pack("!{0}sHH".format(len(question_qname)), question_qname, question_type, 1)
         print("question_bytes:", question_bytes)
+        """
 
         if using_dnssec:
-            packet.bytes = header + question_bytes + packet.createOptRecord()
+            packet.bytes = header + question + packet.createOptRecord()
         else:
-            packet.bytes = header + question_bytes
+            packet.bytes = header + question
         return packet
 
     # Factory method to return a DNSPacket
@@ -78,15 +85,8 @@ class DNSPacket:
     @classmethod
     def newFromBytes(cls, b, packet_id=0):
         packet = cls()
+        packet.bytes = b
 
-
-        # TESTING: Figuring out struct stuff here
-        # ! = indicates "network" byte order and int sizes
-        # H = unisigned short, 2 bytes
-        # B = unsigned char, 1 byte
-        print("len =", len(b))
-        (s_id, s_temp, s_qdcount, s_ancount, s_nscount, s_arcount) = struct.unpack("!HHHHHH", b[:12])
-        print(s_id, s_temp, s_qdcount, s_ancount, s_nscount, s_arcount)
 
         # First parse out the header
         packet.id = int.from_bytes(b[:2], 'big')
@@ -106,7 +106,7 @@ class DNSPacket:
         if packet.rcode != 0 and packet.rcode in RCODE:
             if packet.rcode == 3:
                 print("NOTFOUND")
-                return packet
+                return
             else:
                 print("ERROR\t" + RCODE[packet.rcode])
                 return
@@ -132,6 +132,8 @@ class DNSPacket:
         print("AA: ", packet.aa)
 
         i = cls.HEADER_LEN
+
+
         # Parse through question section. We aren't interested in the data here, just move to the answer section
         # Can't just skip it, because the 'name' part of this section is not a defined length
         for _ in range(packet.num_questions):
@@ -151,10 +153,8 @@ class DNSPacket:
                 # Just skip past the rest of the question section
                 i += 4
 
-        # print("-- Now reading answers --")
+
         # Parse answers:
-
-
         packet.answers = []
         for _ in range(packet.num_answers):
             answer = {}
@@ -192,7 +192,7 @@ class DNSPacket:
             i += 10
 
 
-            if answer['type'] == cls.TYPE_A:
+            if answer['type'] == cls.RR_TYPE_A:
                 if answer['rdata_len'] == 4:
                     answer['ip_addr'] = b[i:i + 4]
                     i += 4
@@ -205,7 +205,7 @@ class DNSPacket:
                 else:
                     print("Error\trdata length should be 4")
                     return
-            elif answer['type'] == cls.TYPE_CNAME:
+            elif answer['type'] == cls.RR_TYPE_CNAME:
                 if answer['rdata_len'] + i > len(b):
                     print("Error\trdata_len is out of bounds")
                 # TODO: Not sure if auth//noauth thing is supposed to be like this
@@ -246,6 +246,24 @@ class DNSPacket:
             0,  # length of RDATA section
             #0,  # Not included because rdata length is 0!
         )
+
+    def createQuestion(self, url, question_type):
+        # Create the QNAME section, which holds the url. This consists of number of labels, one for each domain.
+        # Each label is 1 byte telling the # of characters in the next domain, then the ASCII bytes 0x00 ends the section
+        question_qname = bytearray(len(url) + 2)
+        i = 0
+        for domain in url.split('.'):
+            question_qname[i] = len(domain)
+            i += 1
+            insertBytes(question_qname, domain.encode('utf-8', 'strict'), i)
+            i += len(domain)
+
+        # The last 2 bytes is "class" which should always be 1 for "internet"
+        return struct.pack("!{0}sHH".format(len(question_qname)), question_qname, question_type, 1)
+
+
+    def dump(self):
+        dump_packet(self.bytes)
 
 
 # For testing

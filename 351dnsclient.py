@@ -22,7 +22,7 @@ def getArgumentDict():
 
 def main():
     args = getArgumentDict()
-
+    domain = args['name']
     # Parse out server
     addr = args['address']
     if addr[0] != '@':
@@ -31,12 +31,26 @@ def main():
     split_addr = addr.split(':')
     ip = split_addr[0][1:]
     port = split_addr[1] if len(split_addr) > 1 else DEFAULT_PORT
-    address = (ip, port)
+    resolver_address = (ip, port)
 
     connection = UDPCommunication()
-    query = DNSPacket.newQuery(args['name'], DNSPacket.TYPE_A, using_dnssec=True)
-    connection.sendPacket(address, query.bytes)
-    connection.listen()
+
+    # Note that while multiple questions in 1 packet is TECHNICALLY supported, it is not the norm and should be avoided. We will build a different packet for each query
+    query = DNSPacket.newQuery(domain, DNSPacket.RR_TYPE_A, using_dnssec=False)
+    connection.sendPacket(resolver_address, query)
+    #connection.listen()
+    # On error, this will exit the program
+    response_packet = connection.waitForPacket()
+    print("Response packet:")
+    response_packet.dump()
+
+    print("\n\nTrying DNSSEC:")
+    query = DNSPacket.newQuery(domain, DNSPacket.RR_TYPE_DNSKEY, using_dnssec=True)
+    connection.sendPacket(resolver_address, query)
+    response_packet = connection.waitForPacket();
+    print("Response packet:")
+    response_packet.dump()
+
 
 
 if __name__ == '__main__':
