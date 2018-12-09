@@ -3,7 +3,9 @@ Represents a DNS packet. Will build a query to send to server, or parse through 
 """
 
 import struct
-from util import bytes_to_str, insertBytes, dump_packet
+from util import *
+from datetime import datetime
+from base64 import b64encode
 
 RCODE = {0: 'No error. The request completed successfully.',
          1: 'Format error. The name server was unable to interpret the query.',
@@ -116,21 +118,8 @@ class DNSPacket:
         # Parse through question section. We aren't interested in the data here, just move to the answer section
         # Can't just skip it, because the 'name' part of this section is not a defined length
         for _ in range(packet.num_questions):
-            # First get through the name section
-            if (b[i] >> 6) == 0b11:
-                # If the first two bits of the 'name' field are 1, then there is a pointer here, not the actual name.
-                #  just move past it
-                # print("Found a pointer to name")
-                i += 2
-            else:
-                # Not a pointer.. move i past this string
-                num_bytes = b[i]
-                while num_bytes != 0:
-                    i += 1 + num_bytes
-                    num_bytes = b[i]
-                i += 1
-                # Just skip past the rest of the question section
-                i += 4
+            i += skip_name(b[i:])
+            i += 4  # Skip Type and Class
 
         # Parse answers:
         packet.answers = []
@@ -178,13 +167,12 @@ class DNSPacket:
         if answer['type'] == self.RR_TYPE_A:
             if answer['rdata_len'] == 4:
                 answer['ip_addr'] = bytes[i:i + 4]
-                i += 4
                 # TODO: Not sure if auth//noauth thing is supposed to be like this
                 print("IP\t{0}.{1}.{2}.{3}\t{4}".format(answer['ip_addr'][0], answer['ip_addr'][1],
                                                         answer['ip_addr'][2],
                                                         answer['ip_addr'][3], "auth" if self.aa else "noauth"))
             else:
-                print("Error\trdata length should be 4")
+                print("Error\trdata length should be 4 for A records")
                 return
         elif answer['type'] == self.RR_TYPE_CNAME:
             if answer['rdata_len'] + i > len(bytes):
@@ -192,11 +180,29 @@ class DNSPacket:
             # TODO: Not sure if auth//noauth thing is supposed to be like this
             print("CNAME\t" + bytes_to_str(bytes[i + 1: i + answer['rdata_len']]) + "\t" + (
                 "auth" if self.aa else "noauth"))
-            i += answer['rdata_len']
         elif answer['type'] == self.RR_TYPE_DNSKEY:
             i += 4 # Skip flags, protocol, and algorithm
             print("DNSKEY\t")
+        elif answer['type'] == self.RR_TYPE_RRSIG:
+            count = i + 2
+            type_covered = struct.unpack("H", bytes[i:count])[0]
+            algorithm = ord(bytes[count:count + 1])
+            count += 1
+            labels = ord(bytes[count:count + 1])
+            count += 1
+            orig_ttl = struct.unpack("I", bytes[count:count + 4])[0]
+            count += 4
+            expiration = datetime.fromtimestamp(struct.unpack("I", bytes[count:count + 4])[0])
+            count += 4
+            inception = datetime.fromtimestamp(struct.unpack("I", bytes[count:count + 4])[0])
+            count += 4
+            tag = struct.unpack("H", bytes[count:count + 2])[0]
+            count += 2
+            count += skip_name(bytes[count:])  # TODO: Get signer's name
+            signature = str(b64encode(bytes[count:i+answer['rdata_len']]), 'utf-8')
+            print(type_covered, algorithm, labels, orig_ttl, expiration, inception, tag, signature)
 
+        i += answer['rdata_len']
         return i, answer
 
     def createDnsHeader(self, num_questions, num_answers, num_ns, num_additional):

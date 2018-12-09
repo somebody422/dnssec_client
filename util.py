@@ -47,3 +47,21 @@ def dump_packet(data):
                 else:
                     s += chr(b)
             print(s)
+
+
+def skip_name(bytes):
+    i = 0
+    if (bytes[i] >> 6) == 0b11:
+        # If the first two bits of the 'name' field are 1, then there is a pointer here, not the actual name.
+        #  just move past it
+        # print("Found a pointer to name")
+        i += 2
+    else:
+        # Not a pointer.. move i past this string
+        num_bytes = bytes[i]
+        while num_bytes != 0:
+            i += 1 + num_bytes
+            num_bytes = bytes[i]
+        i += 1
+
+    return i
