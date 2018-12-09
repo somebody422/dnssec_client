@@ -33,6 +33,4 @@ Chain of Trust - More or less follows this process:
   5) Next is now the current zone, repeat from step 2
 
 ### Road Map
-1. Basic DNSKEY record parsing
-    - Should be really similar to RRSIG parsing
-2. Basic DS record parsing
+1. Figure out the roadmap

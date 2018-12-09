@@ -1,7 +1,7 @@
 """
 Represents a DNS packet. Will build a query to send to server, or parse through a server's response.
 """
-
+import binascii
 import struct
 from util import *
 from datetime import datetime
@@ -181,30 +181,45 @@ class DNSPacket:
             print("CNAME\t" + bytes_to_str(bytes[i + 1: i + answer['rdata_len']]) + "\t" + (
                 "auth" if self.aa else "noauth"))
         elif answer['type'] == self.RR_TYPE_DNSKEY:
-            i += 4 # Skip flags, protocol, and algorithm
-            print("DNSKEY\t")
+            count = i
+            flags = bytes[count:count+2]  # TODO: print contents of flags
+            count += 2
+            protocol = ord(bytes[count:count+1])
+            count += 1
+            algorithm = ord(bytes[count:count + 1])
+            count += 1
+            key = str(b64encode(bytes[count:i+answer['rdata_len']]), 'utf-8')
+            print("DNSKEY", flags, protocol, algorithm, key)
         elif answer['type'] == self.RR_TYPE_RRSIG:
             count = i + 2
-            type_covered = struct.unpack("H", bytes[i:count])[0]
+            type_covered = struct.unpack("!H", bytes[i:count])[0]
             algorithm = ord(bytes[count:count + 1])
             count += 1
             labels = ord(bytes[count:count + 1])
             count += 1
-            orig_ttl = struct.unpack("I", bytes[count:count + 4])[0]
+            orig_ttl = struct.unpack("!I", bytes[count:count + 4])[0]
             count += 4
-            expiration = datetime.fromtimestamp(struct.unpack("I", bytes[count:count + 4])[0])
+            expiration = datetime.fromtimestamp(struct.unpack("!I", bytes[count:count + 4])[0])
             if expiration < datetime.today():
-                print("ERROR\tSignature has expired")
-                exit(0)
+                print("ERROR\tSignature has expired============================")
 
             count += 4
-            inception = datetime.fromtimestamp(struct.unpack("I", bytes[count:count + 4])[0])
+            inception = datetime.fromtimestamp(struct.unpack("!I", bytes[count:count + 4])[0])
             count += 4
-            tag = struct.unpack("H", bytes[count:count + 2])[0]
+            tag = struct.unpack("!H", bytes[count:count + 2])[0]
             count += 2
             count += skip_name(bytes[count:])  # TODO: Get signer's name
             signature = str(b64encode(bytes[count:i+answer['rdata_len']]), 'utf-8')
             print("RRSIG", type_covered, algorithm, labels, orig_ttl, expiration, inception, tag, signature)
+        elif answer['type'] == self.RR_TYPE_DS:
+            count = i + 2
+            key_id = int(struct.unpack("!H", bytes[i:count])[0])
+            algorithm = ord(bytes[count:count + 1])
+            count += 1
+            digest_type = ord(bytes[count:count + 1])
+            count += 1
+            digest = str(binascii.hexlify(bytes[count:i+answer['rdata_len']]), 'utf-8').upper()
+            print("DS", key_id, algorithm, digest_type, digest)
 
         i += answer['rdata_len']
         return i, answer
