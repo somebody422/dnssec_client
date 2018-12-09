@@ -32,3 +32,7 @@ Chain of Trust - More or less follows this process:
   4) Hash the public key in the DNSKey record, and compare it to the hash in the DS record you got from current. If it matches, we now trust this zone!
   5) Next is now the current zone, repeat from step 2
 
+### Road Map
+1. Basic DNSKEY record parsing
+    - Should be really similar to RRSIG parsing
+2. Basic DS record parsing

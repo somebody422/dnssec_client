@@ -34,7 +34,7 @@ class UDPCommunication:
             # print("Listening..")
             ready = select.select([self.sock], [], [], UDPCommunication.TIMEOUT)
             if ready[0]:
-                data, addr = self.sock.recvfrom(1024)  # buffer size is 1024 bytes
+                data, addr = self.sock.recvfrom(4096)  # buffer size is 1024 bytes
                 # print("\nResponse Packet:")
                 # dump_packet(data)
                 packet = DNSPacket.newFromBytes(data, packet_id)

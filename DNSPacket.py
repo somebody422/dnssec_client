@@ -193,6 +193,10 @@ class DNSPacket:
             orig_ttl = struct.unpack("I", bytes[count:count + 4])[0]
             count += 4
             expiration = datetime.fromtimestamp(struct.unpack("I", bytes[count:count + 4])[0])
+            if expiration < datetime.today():
+                print("ERROR\tSignature has expired")
+                exit(0)
+
             count += 4
             inception = datetime.fromtimestamp(struct.unpack("I", bytes[count:count + 4])[0])
             count += 4
@@ -200,7 +204,7 @@ class DNSPacket:
             count += 2
             count += skip_name(bytes[count:])  # TODO: Get signer's name
             signature = str(b64encode(bytes[count:i+answer['rdata_len']]), 'utf-8')
-            print(type_covered, algorithm, labels, orig_ttl, expiration, inception, tag, signature)
+            print("RRSIG", type_covered, algorithm, labels, orig_ttl, expiration, inception, tag, signature)
 
         i += answer['rdata_len']
         return i, answer
@@ -208,9 +212,9 @@ class DNSPacket:
     def createDnsHeader(self, num_questions, num_answers, num_ns, num_additional):
         return struct.pack(
             '!HHHHHH',
-            1,  # just use an ID of 1
-            # The flags section. "0x0100" will assert the "recursion desired" bit, and leave everything else at 0
-            0x0100,
+            0x0001,  # just use an ID of 1
+            # The flags section. "0x0100" will assert the "recursion desired" bit, and leave everything else at 0,
+            0x0120,
             num_questions,
             num_answers,
             num_ns,
@@ -227,7 +231,7 @@ class DNSPacket:
             41,  # TYPE = OPT
             # This is the "Class" field. In opt records it is used for the requested UDP payload size.
             # Up this if there are fragmentation issues
-            1024,
+            4024,
             0, # Sets ERcode and EDNS0 version to 0 (no idea what they are for)
             # This is the "TTL" field. In opt records the D0 flag goes here, and the rest is zero'd
             0x8000,
