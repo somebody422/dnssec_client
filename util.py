@@ -4,12 +4,10 @@ Small utility functions which don't have a home :(
 """
 
 
-
 # Replaces values in bytearray with values from bytes, starting at index
 def insertBytes(ba, b, index):
     for i in range(index, min(len(ba), len(b) + index)):
         ba[i] = b[i - index]
-
 
 
 def bytes_to_str(data):
@@ -22,7 +20,6 @@ def bytes_to_str(data):
     return s
 
 
-
 # Prints a hex dump of the data to stdout
 def dump_packet(data):
     """
@@ -33,7 +30,7 @@ def dump_packet(data):
     count = 0
     for byte in data:
         if count % 16 == 0:
-            print('{:04b}'.format(count//8), end=" ")
+            print('{:04b}'.format(count // 8), end=" ")
         count += 1
         print('{:02x}'.format(byte), end=" ")
         if count % 8 == 0:

@@ -8,8 +8,7 @@ We will be using UDP to send and receive packets.
 import socket
 import select
 from DNSPacket import DNSPacket
-from util import dump_packet # todo: remove this when you can
-
+from util import dump_packet  # todo: remove this when you can
 
 
 class UDPCommunication:
@@ -28,7 +27,6 @@ class UDPCommunication:
         dump_packet(self.data)
         self.sock.sendto(self.data, addr)
 
-
     def waitForPacket(self):
         packet_id = 1
         num_tries = 0
@@ -37,8 +35,8 @@ class UDPCommunication:
             ready = select.select([self.sock], [], [], UDPCommunication.TIMEOUT)
             if ready[0]:
                 data, addr = self.sock.recvfrom(1024)  # buffer size is 1024 bytes
-                #print("\nResponse Packet:")
-                #dump_packet(data)
+                # print("\nResponse Packet:")
+                # dump_packet(data)
                 packet = DNSPacket.newFromBytes(data, packet_id)
                 # TODO: increment packet_id or no?
                 if not packet:
