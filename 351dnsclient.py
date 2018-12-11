@@ -54,12 +54,41 @@ def main():
     # print("\nResponse packet:")
     # response_packet.dump()
 
-    print("\n\nTrying DNSSEC:")
-    query = DNSPacket.newQuery(domain_name, query_type, using_dnssec=True)
+
+    # Testing verifying an A record: ignoring the query type setting for now  -sam
+    print("\n\n\nGetting A Record:")
+    query = DNSPacket.newQuery(domain_name, DNSPacket.RR_TYPE_A, using_dnssec=True)
     connection.sendPacket(resolver_address, query)
-    response_packet = connection.waitForPacket()
-    print("\nResponse packet:")
-    response_packet.dump()
+    arecord_response = connection.waitForPacket()
+    print("\narecord_response packet:")
+    #arecord_response.dump()
+
+    print("\n\n\nGetting Key:")
+    query = DNSPacket.newQuery(domain_name, DNSPacket.RR_TYPE_DNSKEY, using_dnssec=True)
+    connection.sendPacket(resolver_address, query)
+    dnskey_response = connection.waitForPacket()
+    print("\ndnskey_response packet:")
+    #dnskey_response.dump()
+
+    # If DNSSEC D0 bit is enabled, the A record fetch will get its RRSIG as well. So manually fetching RRSIGs is unnecessary
+    """
+    print("\n\n\nGetting RRSIG:")
+    query = DNSPacket.newQuery(domain_name, DNSPacket.RR_TYPE_RRSIG, using_dnssec=True)
+    connection.sendPacket(resolver_address, query)
+    rrsig_response = connection.waitForPacket()
+    print("\nrrsig_response packet:")
+    rrsig_response.dump()
+    """
+
+    # Now, fetch DS record from parent zone:
+    split_domain = domain_name.split('.')
+    parent_domain = '.'.join(split_domain[1:])
+    print("\n\n\nGetting DS record from {}".format(parent_domain))
+    query = DNSPacket.newQuery(domain_name, DNSPacket.RR_TYPE_DS, using_dnssec=True)
+    connection.sendPacket(resolver_address, query)
+    ds_response = connection.waitForPacket()
+    print("\narecord_response packet:")
+    ds_response.dump()
 
 
 if __name__ == '__main__':
