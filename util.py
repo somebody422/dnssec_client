@@ -63,5 +63,30 @@ def skip_name(bytes):
             i += 1 + num_bytes
             num_bytes = bytes[i]
         i += 1
-
     return i
+
+
+def parse_name(bytes):
+    domain = None
+    i = 0
+    if (bytes[i] >> 6) == 0b11:
+        # Name is stored as a 2-byte pointer. We will just ignore this for now
+        print("Name is stored as a pointer")
+        i += 2
+    else:
+        # Not a pointer.. parse out the string
+        reading_domain_string = True
+        domain = []
+        while reading_domain_string:
+            num_bytes = bytes[i]
+            # print("num_bytes =", num_bytes)
+            i += 1
+            if num_bytes == 0:
+                # A zero byte means the domain part is done
+                # print("Done reading domain")
+                reading_domain_string = False
+            else:
+                domain.append(bytes[i: i + num_bytes])
+                i += num_bytes
+                print("Read domain:", domain[len(domain) - 1].decode('utf-8'))
+    return i, domain

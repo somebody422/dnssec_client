@@ -1,11 +1,10 @@
 """
 Represents a DNS packet. Will build a query to send to server, or parse through a server's response.
 """
-import binascii
 import struct
+
+from records.Record import parse_record
 from util import *
-from datetime import datetime
-from base64 import b64encode
 
 RCODE = {0: 'No error. The request completed successfully.',
          1: 'Format error. The name server was unable to interpret the query.',
@@ -68,185 +67,72 @@ class DNSPacket:
 
         return packet
 
-    # Factory method to return a DNSPacket
-    # Can be called with a byte-string received from networking interface
-    # Will parse a bytes object representing a DNS packet. Fields in the DNSPacket will be filled in.
     @classmethod
     def newFromBytes(cls, b, packet_id=0):
+        """
+        Will parse a bytes object representing a DNS packet. Fields in the DNSPacket will be filled in.
+        :param b: byte-string usually received from networking interface
+        :param packet_id: expected ID of the packet
+        :return: The packet if successful, None otherwise
+        """
         packet = cls()
         packet.bytes = b
 
         # First parse out the header
-        packet.id = int.from_bytes(b[:2], 'big')
-        if packet_id != 0 and packet.id != packet_id:
-            print("ERROR\tID " + str(packet.id) + " Does not match. Expected " + str(packet_id))
-        temp = int.from_bytes(b[2:4], 'big')
-        packet.qr = temp & 2 ** 15 == 1
-        packet.opcode = temp >> 11 & 15
-        packet.aa = temp >> 10 & 1 == 1
-        packet.tc = temp >> 9 & 1 == 1
-        packet.rd = temp >> 8 & 1 == 1
-        packet.ra = temp >> 7 & 1 == 1
-        packet.z = temp >> 6 & 1 == 1
-        packet.ad = temp >> 5 & 1 == 1
-        packet.cd = temp >> 4 & 1 == 1
-        packet.rcode = temp & 15
-        if packet.rcode != 0:
-            if packet.rcode == 3:
-                print("NOTFOUND")
-            elif packet.rcode in RCODE:
-                print("ERROR\t" + RCODE[packet.rcode])
-            else:
-                print("ERROR\tRcode " + str(packet.rcode) + " unrecognized")
+        if packet.parse_header(b, packet_id) is None:
             return
-
-        # More stuff, not sure if needed
-        packet.num_questions = int.from_bytes(b[4:6], 'big')
-        packet.num_answers = int.from_bytes(b[6:8], 'big')
-        packet.num_authority_records = int.from_bytes(b[8:10], 'big')
-        packet.num_additional_records = int.from_bytes(b[10:12], 'big')
-        packet.questions = []
-        packet.answers = []
         # Not really interested in authority_records or additional_records
-        print("ID =", packet.id)
-        print("num_questions =", packet.num_questions)
-        print("num_answers =", packet.num_answers)
-        print("num_authority_records =", packet.num_authority_records)
-        print("num_additional_records =", packet.num_additional_records)
-        print("QR: ", packet.qr)
-        print("Opcode: ", packet.opcode)
-        print("AA: ", packet.aa)
-
-        i = cls.HEADER_LEN
+        # print("ID =", packet.id)
+        # print("num_questions =", packet.num_questions)
+        # print("num_answers =", packet.num_answers)
+        # print("num_authority_records =", packet.num_authority_records)
+        # print("num_additional_records =", packet.num_additional_records)
+        # print("QR: ", packet.qr)
+        # print("Opcode: ", packet.opcode)
+        # print("AA: ", packet.aa)
 
         # Parse through question section. We aren't interested in the data here, just move to the answer section
         # Can't just skip it, because the 'name' part of this section is not a defined length
-        for _ in range(packet.num_questions):
-            i += skip_name(b[i:])
-            i += 4  # Skip Type and Class
+        answers_start_i = packet.skip_questions(b)
 
         # Parse answers:
-        packet.answers = []
-        for _ in range(packet.num_answers):
-            result = packet.parse_record(b[i:])
-            i += result[0]
-            packet.answers.append(result[1])
+        packet.parse_answers(b[answers_start_i:])
         return packet
 
-    def parse_record(self, bytes):
-        print("==== Record: ====")
-        answer = {}
-        answer['bytes'] = bytes
-        i = 0
-        if (bytes[i] >> 6) == 0b11:
-            # Name is stored as a 2-byte pointer. We will just ignore this for now
-            print("Name is stored as a pointer")
-            i += 2
-        else:
-            # Not a pointer.. parse out the string
-            reading_domain_string = True
-            domain = []
-            while reading_domain_string:
-                num_bytes = bytes[i]
-                # print("num_bytes =", num_bytes)
-                i += 1
-                if num_bytes == 0:
-                    # A zero byte means the domain part is done
-                    # print("Done reading domain")
-                    reading_domain_string = False
-                else:
-                    domain.append(bytes[i: i + num_bytes])
-                    i += num_bytes
-                    print("Read domain:", domain[len(domain) - 1].decode('utf-8'))
-        # The raw bytes of the name field
-        answer['raw_name'] = bytes[:i]
-        #answer['name'] = domain
+    def skip_questions(self, b):
+        """
+        Returns the first index after the question section
+        :param b: Bytes of packet
+        :return: Int representing the first index after the question section
+        """
+        count = self.HEADER_LEN
+        for _ in range(self.num_questions):
+            count += skip_name(b[count:])
+            count += 4  # Skip Type and Class
+        return count
 
-        # ! = indicates "network" byte order and int sizes
-        # I = unsigned int, 4 bytes
-        # H = unisigned short, 2 bytes
-        # B = unsigned char, 1 byte
-        (answer['type'], answer['class'], answer['ttl'], answer['rdata_len']) = struct.unpack("!HHIH", bytes[i:i + 10])
-
-        print("Type:", answer['type'], bytes[i:i + 2])
-        print("Class:", answer['class'], bytes[i:i + 2])
-        print("TTL:", answer['ttl'], bytes[i:i + 4])
-        print("rdata len:", answer['rdata_len'], bytes[i:i + 2])
-        i += 10
-        answer['rdata'] = bytes[i : i+answer['rdata_len']]
-
-        if answer['type'] == self.RR_TYPE_A:
-            if answer['rdata_len'] == 4:
-                answer['ip_addr'] = bytes[i:i + 4]
-                # TODO: Not sure if auth//noauth thing is supposed to be like this
-                print("IP\t{0}.{1}.{2}.{3}\t{4}".format(answer['ip_addr'][0], answer['ip_addr'][1],
-                                                        answer['ip_addr'][2],
-                                                        answer['ip_addr'][3], "auth" if self.aa else "noauth"))
-            else:
-                print("Error\trdata length should be 4 for A records")
-                return
-        elif answer['type'] == self.RR_TYPE_CNAME:
-            if answer['rdata_len'] + i > len(bytes):
-                print("Error\trdata_len is out of bounds")
-            # TODO: Not sure if auth//noauth thing is supposed to be like this
-            print("CNAME\t" + bytes_to_str(bytes[i + 1: i + answer['rdata_len']]) + "\t" + (
-                "auth" if self.aa else "noauth"))
-        elif answer['type'] == self.RR_TYPE_DNSKEY:
-            count = i
-            answer['flags'] = bytes[count:count+2]  # TODO: print contents of flags
-            # The 'SEP' bit indicates that the DS record in the parent zone uses this key!
-            # 'SEP' = Secure Entry Point
-            answer['sep'] = answer['flags'][1] & (1)
-            count += 2
-            answer['protocol'] = ord(bytes[count:count+1])
-            count += 1
-            answer['algorithm'] = ord(bytes[count:count + 1])
-            count += 1
-            answer['key'] = str(b64encode(bytes[count:i+answer['rdata_len']]), 'utf-8')
-            print("DNSKEY: flags={}, sep={}, protocol={}, algorithm={}, key={}".format(answer['flags'], answer['sep'], answer['protocol'], answer['algorithm'], answer['key']))
-        elif answer['type'] == self.RR_TYPE_RRSIG:
-            count = i + 2
-            answer['type_covered'] = struct.unpack("!H", bytes[i:count])[0]
-            answer['algorithm'] = ord(bytes[count:count + 1])
-            count += 1
-            answer['labels'] = ord(bytes[count:count + 1])
-            count += 1
-            answer['orig_ttl'] = struct.unpack("!I", bytes[count:count + 4])[0]
-            count += 4
-            answer['expiration'] = datetime.fromtimestamp(struct.unpack("!I", bytes[count:count + 4])[0])
-            if answer['expiration'] < datetime.today():
-                print("ERROR\tSignature has expired============================")
-
-            count += 4
-            answer['inception'] = datetime.fromtimestamp(struct.unpack("!I", bytes[count:count + 4])[0])
-            count += 4
-            answer['tag'] = struct.unpack("!H", bytes[count:count + 2])[0]
-            count += 2
-            name_len = skip_name(bytes[count:])
-            answer['signer_name'] = bytes[count:count+name_len]
-            #count += skip_name(bytes[count:])  # TODO: Get signer's name
-            count += name_len
-            answer['signature'] = str(b64encode(bytes[count:i+answer['rdata_len']]), 'utf-8')
-            print("RRSIG: type_covered={}, algorithm={}, labels={}, orig_ttl={}, expiration={}, inception={}, tag={}k, signature={}".format(answer['type_covered'], answer['algorithm'], answer['labels'], answer['orig_ttl'], answer['expiration'], answer['inception'], answer['tag'], answer['signature']))
-        elif answer['type'] == self.RR_TYPE_DS:
-            count = i + 2
-            answer['key_id'] = int(struct.unpack("!H", bytes[i:count])[0])
-            answer['algorithm'] = ord(bytes[count:count + 1])
-            count += 1
-            answer['digest_type'] = ord(bytes[count:count + 1])
-            count += 1
-            answer['digest'] = str(binascii.hexlify(bytes[count:i+answer['rdata_len']]), 'utf-8').upper()
-            print("DS: key_id={}, algorith={}, digest_type={}".format(answer['key_id'], answer['algorithm'], answer['digest_type'], answer['digest']))
-
-        i += answer['rdata_len']
-        return i, answer
+    def parse_answers(self, b):
+        """
+        Parses the answer section and returns a list of records
+        :param b: Bytes of packet
+        :return: A list of records
+        """
+        self.answers = []
+        count = 0
+        for _ in range(self.num_answers):
+            result = parse_record(b[count:])
+            count += result[0]
+            print(result[1])
+            self.answers.append(result[1])
 
     def createDnsHeader(self, num_questions, num_answers, num_ns, num_additional):
         return struct.pack(
             '!HHHHHH',
             0x0001,  # just use an ID of 1
-            # The flags section. "0x0100" will assert the "recursion desired" bit, and leave everything else at 0,
-            0x0120,
+            # The flags section. "0x0130" will set the "recursion desired" bit,
+            # the Authenticated data (AD) bit, and the Checking Disabled (CD) bit.
+            # See https://mycourses.rit.edu/d2l/le/713074/discussions/threads/2901592/View
+            0x0130,
             num_questions,
             num_answers,
             num_ns,
@@ -288,6 +174,40 @@ class DNSPacket:
     def dump(self):
         dump_packet(self.bytes)
 
+    def parse_header(self, b, packet_id=0):
+        # First parse out the header
+        self.id = int.from_bytes(b[:2], 'big')
+        if packet_id != 0 and self.id != packet_id:
+            print("ERROR\tID " + str(self.id) + " Does not match. Expected " + str(packet_id))
+        temp = int.from_bytes(b[2:4], 'big')
+        self.qr = temp & 2 ** 15 == 1
+        self.opcode = temp >> 11 & 15
+        self.aa = temp >> 10 & 1 == 1
+        self.tc = temp >> 9 & 1 == 1
+        self.rd = temp >> 8 & 1 == 1
+        self.ra = temp >> 7 & 1 == 1
+        self.z = temp >> 6 & 1 == 1
+        self.ad = temp >> 5 & 1 == 1
+        self.cd = temp >> 4 & 1 == 1
+        self.rcode = temp & 15
+        if self.rcode != 0:
+            if self.rcode == 3:
+                print("NOTFOUND")
+            elif self.rcode in RCODE:
+                print("ERROR\t" + RCODE[self.rcode])
+            else:
+                print("ERROR\tRcode " + str(self.rcode) + " unrecognized")
+            return
+
+        # More stuff, not sure if needed
+        self.num_questions = int.from_bytes(b[4:6], 'big')
+        self.num_answers = int.from_bytes(b[6:8], 'big')
+        self.num_authority_records = int.from_bytes(b[8:10], 'big')
+        self.num_additional_records = int.from_bytes(b[10:12], 'big')
+        self.questions = []
+        self.answers = []
+
+        return self
 # For testing
 # if __name__ == '__main__':
 # DNSPacket.newFromBytes(DNSPacket.default_header)

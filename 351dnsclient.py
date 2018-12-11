@@ -2,10 +2,11 @@
 
 from argparse import ArgumentParser
 import sys
+import time
+
 from DNSPacket import DNSPacket
 from network import UDPCommunication
 import crypto
-#from Crypto import RSA
 
 DEFAULT_PORT = 53
 
@@ -56,35 +57,35 @@ def main():
     # print("\nResponse packet:")
     # response_packet.dump()
 
-
     # Testing verifying an A record: ignoring the query type setting for now  -sam
     print("\n\n\nGetting A Record:")
     query = DNSPacket.newQuery(domain_name, DNSPacket.RR_TYPE_A, using_dnssec=True)
     connection.sendPacket(resolver_address, query)
     arecord_response = connection.waitForPacket()
     print("\narecord_response packet:")
-    #arecord_response.dump()
+    # arecord_response.dump()
+
+    time.sleep(3)
 
     print("\n\n\nGetting Key:")
     query = DNSPacket.newQuery(domain_name, DNSPacket.RR_TYPE_DNSKEY, using_dnssec=True)
     connection.sendPacket(resolver_address, query)
     dnskey_response = connection.waitForPacket()
     print("\ndnskey_response packet:")
-    #dnskey_response.dump()
+    # dnskey_response.dump()
 
     # If DNSSEC D0 bit is enabled, the A record fetch will get its RRSIG as well. So manually fetching RRSIGs is unnecessary
-
 
     # todo: move crypto stuff into its own file at some point
     print('\n\n\nValidating the A RRSET:')
     rr_set = []
     arecord_sig = None
     for answer in arecord_response.answers:
-        if answer['type'] == DNSPacket.RR_TYPE_A:
+        if answer.type == DNSPacket.RR_TYPE_A:
             rr_set.append(answer)
-        elif answer['type'] == DNSPacket.RR_TYPE_RRSIG:
+        elif answer.type == DNSPacket.RR_TYPE_RRSIG:
             arecord_sig = answer
-    if len(rr_set) == 0  or  arecord_sig == None:
+    if len(rr_set) == 0 or arecord_sig is None:
         print("ERROR: Unable to find A records and signiture")
         sys.exit(1)
 
@@ -92,28 +93,29 @@ def main():
     # https://tools.ietf.org/html/rfc4034#section-3.1.8.1
     # https://tools.ietf.org/html/rfc4034#section-3.1.8.1
 
-    #print("rr_set:", rr_set)
-    #print("arecord_sig:", arecord_sig)
+    # print("rr_set:", rr_set)
+    # print("arecord_sig:", arecord_sig)
+
     keys = []
     for answer in dnskey_response.answers:
-        if answer['type'] == DNSPacket.RR_TYPE_DNSKEY:  #and  answer['sep'] == 1:
+        if answer.type == DNSPacket.RR_TYPE_DNSKEY:  # and  answer['sep'] == 1:
             keys.append(answer)
     if len(keys) == 0:
         print("ERROR Cannot find any keys")
         sys.exit(1)
-    #print("keys:", keys)
+    # print("keys:", keys)
 
-    
-    #a = crypto.RRSignableData(rr_set[0], 'verisignlabs.com')
-# todo: handle more algorithms
-    if arecord_sig['algorithm'] != DNSPacket.ALGO_TYPE_RSASHA256:
-        print("ERROR: Don't know algorithm:", arecord_sig['algorithm'])
+
+    # a = crypto.RRSignableData(rr_set[0], 'verisignlabs.com')
+    # todo: handle more algorithms
+    if arecord_sig.algorithm != DNSPacket.ALGO_TYPE_RSASHA256:
+        print("ERROR: Don't know algorithm:", arecord_sig.algorithm)
         sys.exit(1)
 
-    print("Sig from server: ", arecord_sig['rdata'])
+    print("Sig from server: ", arecord_sig.rdata)
     for key in keys:
         # To create a signiture we need the rrsig fields.. Just use the one we got with the a records
-        sig_header = arecord_sig['rdata'][: 18 + len(arecord_sig['signer_name'])]
+        sig_header = arecord_sig.rdata[: 18 + len(arecord_sig.signer_name)]
         #import pdb; pdb.set_trace()
         sig = crypto.createSigniture(rr_set, key, sig_header, domain_name)
 

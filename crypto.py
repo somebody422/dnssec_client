@@ -19,7 +19,7 @@ def createSigniture(rr_set, key, rr_sig_header, domain):
 	for rr in rr_set:
 		#rr_set_signable.append(RRSignableData(rr, domain))
 		data += RRSignableData(rr, domain)
-	
+
 	#data_to_sign = struct.pack("!{0}s{1}s{2}s".format())
 	hasher = SHA256.new()
 	hasher.update(data)
@@ -62,7 +62,7 @@ def RRSignableData(rr, owner):
 	#print("formatted_owner:", formatted_owner)
 	#print("ttl:", rr['ttl'])
 	#print("type:", rr['type'])
-	return struct.pack("!{0}sHHIH{1}s ".format(len(formatted_owner), rr['rdata_len']), formatted_owner, rr['type'], rr['class'], rr['ttl'], rr['rdata_len'], rr['rdata'])
+	return struct.pack("{0}sHHIH{1}s ".format(len(formatted_owner), rr.rdata_len), formatted_owner ,rr.type, rr.clazz, rr.ttl, rr.rdata_len, rr.rdata)
 
 
 
