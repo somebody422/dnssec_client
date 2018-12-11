@@ -118,6 +118,7 @@ class DNSPacket:
         for _ in range(self.num_answers):
             result = parse_record(b[count:])
             count += result[0]
+            print(result[1])
             self.answers.append(result[1])
 
     def createDnsHeader(self, num_questions, num_answers, num_ns, num_additional):
