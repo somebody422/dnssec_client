@@ -104,14 +104,14 @@ class DNSPacket:
         packet.questions = []
         packet.answers = []
         # Not really interested in authority_records or additional_records
-        print("ID =", packet.id)
-        print("num_questions =", packet.num_questions)
-        print("num_answers =", packet.num_answers)
-        print("num_authority_records =", packet.num_authority_records)
-        print("num_additional_records =", packet.num_additional_records)
-        print("QR: ", packet.qr)
-        print("Opcode: ", packet.opcode)
-        print("AA: ", packet.aa)
+        # print("ID =", packet.id)
+        # print("num_questions =", packet.num_questions)
+        # print("num_answers =", packet.num_answers)
+        # print("num_authority_records =", packet.num_authority_records)
+        # print("num_additional_records =", packet.num_additional_records)
+        # print("QR: ", packet.qr)
+        # print("Opcode: ", packet.opcode)
+        # print("AA: ", packet.aa)
 
         i = cls.HEADER_LEN
 
@@ -158,10 +158,10 @@ class DNSPacket:
         # H = unisigned short, 2 bytes
         # B = unsigned char, 1 byte
         (answer['type'], answer['class'], answer['ttl'], answer['rdata_len']) = struct.unpack("!HHIH", bytes[i:i + 10])
-        print("Type:", answer['type'], bytes[i:i + 2])
-        print("Class:", answer['class'], bytes[i:i + 2])
-        print("TTL:", answer['ttl'], bytes[i:i + 4])
-        print("rdata len:", answer['rdata_len'], bytes[i:i + 2])
+        # print("Type:", answer['type'], bytes[i:i + 2])
+        # print("Class:", answer['class'], bytes[i:i + 2])
+        # print("TTL:", answer['ttl'], bytes[i:i + 4])
+        # print("rdata len:", answer['rdata_len'], bytes[i:i + 2])
         i += 10
 
         if answer['type'] == self.RR_TYPE_A:
@@ -181,8 +181,8 @@ class DNSPacket:
             print("CNAME\t" + bytes_to_str(bytes[i + 1: i + answer['rdata_len']]) + "\t" + (
                 "auth" if self.aa else "noauth"))
         elif answer['type'] == self.RR_TYPE_DNSKEY:
-            count = i
-            flags = bytes[count:count+2]  # TODO: print contents of flags
+            count = i + 2
+            flags = struct.unpack("!H", bytes[i:count])[0]
             count += 2
             protocol = ord(bytes[count:count+1])
             count += 1
@@ -228,8 +228,10 @@ class DNSPacket:
         return struct.pack(
             '!HHHHHH',
             0x0001,  # just use an ID of 1
-            # The flags section. "0x0100" will assert the "recursion desired" bit, and leave everything else at 0,
-            0x0120,
+            # The flags section. "0x0130" will set the "recursion desired" bit,
+            # the Authenticated data (AD) bit, and the Checking Disabled (CD) bit.
+            # See https://mycourses.rit.edu/d2l/le/713074/discussions/threads/2901592/View
+            0x0130,
             num_questions,
             num_answers,
             num_ns,

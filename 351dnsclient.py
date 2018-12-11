@@ -54,9 +54,10 @@ def main():
     # print("\nResponse packet:")
     # response_packet.dump()
 
-    print("\n\nTrying DNSSEC:")
+    print("Trying DNSSEC:")
     query = DNSPacket.newQuery(domain_name, query_type, using_dnssec=True)
     connection.sendPacket(resolver_address, query)
+    print("")
     response_packet = connection.waitForPacket()
     print("\nResponse packet:")
     response_packet.dump()
