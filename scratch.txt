@@ -1,6 +1,8 @@
 I just like having a place to write down notes/todo/research
 feel free to add to this if you like chris
 
+Not sure if the domain you are testing is dnssec enabled? use this!
+https://dnssec-analyzer.verisignlabs.com/
 
 havn't read through it yet but it looks as thorough as you can get without ino-depth technical stuff. lots of diagrams
 https://www.cloudflare.com/dns/dnssec/how-dnssec-works/
@@ -34,3 +36,11 @@ Chain of Trust - More or less follows this process:
 
 ### Road Map
 1. Figure out the roadmap
+
+
+my suggestion for where to go from here. using 'example.com' as an example  -sam
+	- Make sure we get RRSIG, DNSKEY and A from example.com
+	- Verify RRSIG by using DNSKEY. I think we use SHA-2-something on the RRSET (probably just the 1 A record we got?) then hash the result?
+	- Next try to get the DS record from 'com' domain. Compare the two, i believe by hashing the 'example.com' DNSKEY and comparing the two
+	- Turn this into a loop which keeps going until parent domain is reached
+	- IDK what to do about root, ask prof about that

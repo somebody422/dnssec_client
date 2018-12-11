@@ -130,11 +130,12 @@ class DNSPacket:
         return packet
 
     def parse_record(self, bytes):
+        print("==== Record: ====")
         answer = {}
         i = 0
         if (bytes[i] >> 6) == 0b11:
             # Name is stored as a 2-byte pointer. We will just ignore this for now
-            # print("Name is stored as a pointer")
+            print("Name is stored as a pointer")
             i += 2
         else:
             # Not a pointer.. parse out the string
@@ -151,13 +152,18 @@ class DNSPacket:
                 else:
                     domain.append(bytes[i: i + num_bytes])
                     i += num_bytes
-                    # print("Read domain:", domain[len(domain) - 1].decode('utf-8'))
+                    print("Read domain:", domain[len(domain) - 1].decode('utf-8'))
+        # The raw bytes of the name field
+        answer['raw_name'] = bytes[:i]
+        #answer['name'] = domain
 
         # ! = indicates "network" byte order and int sizes
         # I = unsigned int, 4 bytes
         # H = unisigned short, 2 bytes
         # B = unsigned char, 1 byte
         (answer['type'], answer['class'], answer['ttl'], answer['rdata_len']) = struct.unpack("!HHIH", bytes[i:i + 10])
+        answer['rdata'] = bytes[i:10:]
+
         # print("Type:", answer['type'], bytes[i:i + 2])
         # print("Class:", answer['class'], bytes[i:i + 2])
         # print("TTL:", answer['ttl'], bytes[i:i + 4])
@@ -181,45 +187,48 @@ class DNSPacket:
             print("CNAME\t" + bytes_to_str(bytes[i + 1: i + answer['rdata_len']]) + "\t" + (
                 "auth" if self.aa else "noauth"))
         elif answer['type'] == self.RR_TYPE_DNSKEY:
-            count = i + 2
-            flags = struct.unpack("!H", bytes[i:count])[0]
+            count = i
+            answer['flags'] = bytes[count:count+2]  # TODO: print contents of flags
+            # The 'SEP' bit indicates that the DS record in the parent zone uses this key!
+            # 'SEP' = Secure Entry Point
+            answer['sep'] = answer['flags'][1] & (1)
             count += 2
-            protocol = ord(bytes[count:count+1])
+            answer['protocol'] = ord(bytes[count:count+1])
             count += 1
-            algorithm = ord(bytes[count:count + 1])
+            answer['algorithm'] = ord(bytes[count:count + 1])
             count += 1
-            key = str(b64encode(bytes[count:i+answer['rdata_len']]), 'utf-8')
-            print("DNSKEY", flags, protocol, algorithm, key)
+            answer['key'] = str(b64encode(bytes[count:i+answer['rdata_len']]), 'utf-8')
+            print("DNSKEY: flags={}, sep={}, protocol={}, algorithm={}, key={}".format(answer['flags'], answer['sep'], answer['protocol'], answer['algorithm'], answer['key']))
         elif answer['type'] == self.RR_TYPE_RRSIG:
             count = i + 2
-            type_covered = struct.unpack("!H", bytes[i:count])[0]
-            algorithm = ord(bytes[count:count + 1])
+            answer['type_covered'] = struct.unpack("!H", bytes[i:count])[0]
+            answer['algorithm'] = ord(bytes[count:count + 1])
             count += 1
-            labels = ord(bytes[count:count + 1])
+            answer['labels'] = ord(bytes[count:count + 1])
             count += 1
-            orig_ttl = struct.unpack("!I", bytes[count:count + 4])[0]
+            answer['orig_ttl'] = struct.unpack("!I", bytes[count:count + 4])[0]
             count += 4
-            expiration = datetime.fromtimestamp(struct.unpack("!I", bytes[count:count + 4])[0])
-            if expiration < datetime.today():
+            answer['expiration'] = datetime.fromtimestamp(struct.unpack("!I", bytes[count:count + 4])[0])
+            if answer['expiration'] < datetime.today():
                 print("ERROR\tSignature has expired============================")
 
             count += 4
-            inception = datetime.fromtimestamp(struct.unpack("!I", bytes[count:count + 4])[0])
+            answer['inception'] = datetime.fromtimestamp(struct.unpack("!I", bytes[count:count + 4])[0])
             count += 4
-            tag = struct.unpack("!H", bytes[count:count + 2])[0]
+            answer['tag'] = struct.unpack("!H", bytes[count:count + 2])[0]
             count += 2
             count += skip_name(bytes[count:])  # TODO: Get signer's name
-            signature = str(b64encode(bytes[count:i+answer['rdata_len']]), 'utf-8')
-            print("RRSIG", type_covered, algorithm, labels, orig_ttl, expiration, inception, tag, signature)
+            answer['signature'] = str(b64encode(bytes[count:i+answer['rdata_len']]), 'utf-8')
+            print("RRSIG: type_covered={}, algorithm={}, labels={}, orig_ttl={}, expiration={}, inception={}, tag={}k, signature={}".format(answer['type_covered'], answer['algorithm'], answer['labels'], answer['orig_ttl'], answer['expiration'], answer['inception'], answer['tag'], answer['signature']))
         elif answer['type'] == self.RR_TYPE_DS:
             count = i + 2
-            key_id = int(struct.unpack("!H", bytes[i:count])[0])
-            algorithm = ord(bytes[count:count + 1])
+            answer['key_id'] = int(struct.unpack("!H", bytes[i:count])[0])
+            answer['algorithm'] = ord(bytes[count:count + 1])
             count += 1
-            digest_type = ord(bytes[count:count + 1])
+            answer['digest_type'] = ord(bytes[count:count + 1])
             count += 1
-            digest = str(binascii.hexlify(bytes[count:i+answer['rdata_len']]), 'utf-8').upper()
-            print("DS", key_id, algorithm, digest_type, digest)
+            answer['digest'] = str(binascii.hexlify(bytes[count:i+answer['rdata_len']]), 'utf-8').upper()
+            print("DS: key_id={}, algorith={}, digest_type={}".format(answer['key_id'], answer['algorithm'], answer['digest_type'], answer['digest']))
 
         i += answer['rdata_len']
         return i, answer
