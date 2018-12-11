@@ -5,6 +5,7 @@ import sys
 from DNSPacket import DNSPacket
 from network import UDPCommunication
 import crypto
+#from Crypto import RSA
 
 DEFAULT_PORT = 53
 
@@ -93,7 +94,6 @@ def main():
 
     #print("rr_set:", rr_set)
     #print("arecord_sig:", arecord_sig)
-
     keys = []
     for answer in dnskey_response.answers:
         if answer['type'] == DNSPacket.RR_TYPE_DNSKEY:  #and  answer['sep'] == 1:
@@ -103,9 +103,24 @@ def main():
         sys.exit(1)
     #print("keys:", keys)
 
-    # RFC on signiture calculation: https://tools.ietf.org/html/rfc4034#section-3.1
-    a = crypto.RRSignableData(rr_set[0], 'verisignlabs.com')
-    import pdb; pdb.set_trace()
+    
+    #a = crypto.RRSignableData(rr_set[0], 'verisignlabs.com')
+# todo: handle more algorithms
+    if arecord_sig['algorithm'] != DNSPacket.ALGO_TYPE_RSASHA256:
+        print("ERROR: Don't know algorithm:", arecord_sig['algorithm'])
+        sys.exit(1)
+
+    print("Sig from server: ", arecord_sig['rdata'])
+    for key in keys:
+        # To create a signiture we need the rrsig fields.. Just use the one we got with the a records
+        sig_header = arecord_sig['rdata'][: 18 + len(arecord_sig['signer_name'])]
+        #import pdb; pdb.set_trace()
+        sig = crypto.createSigniture(rr_set, key, sig_header, domain_name)
+
+
+
+
+
 
 
 

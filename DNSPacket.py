@@ -37,6 +37,10 @@ class DNSPacket:
     RR_TYPE_DS = 43
     RR_TYPE_RRSIG = 46
 
+    # https://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml
+    ALGO_TYPE_RSASHA1 = 5
+    ALGO_TYPE_RSASHA256 = 8
+
     HEADER_LEN = 12
 
     def __init__(self):
@@ -132,6 +136,7 @@ class DNSPacket:
     def parse_record(self, bytes):
         print("==== Record: ====")
         answer = {}
+        answer['bytes'] = bytes
         i = 0
         if (bytes[i] >> 6) == 0b11:
             # Name is stored as a 2-byte pointer. We will just ignore this for now
@@ -162,13 +167,13 @@ class DNSPacket:
         # H = unisigned short, 2 bytes
         # B = unsigned char, 1 byte
         (answer['type'], answer['class'], answer['ttl'], answer['rdata_len']) = struct.unpack("!HHIH", bytes[i:i + 10])
-        answer['rdata'] = bytes[i:10:]
 
         print("Type:", answer['type'], bytes[i:i + 2])
         print("Class:", answer['class'], bytes[i:i + 2])
         print("TTL:", answer['ttl'], bytes[i:i + 4])
         print("rdata len:", answer['rdata_len'], bytes[i:i + 2])
         i += 10
+        answer['rdata'] = bytes[i : i+answer['rdata_len']]
 
         if answer['type'] == self.RR_TYPE_A:
             if answer['rdata_len'] == 4:
@@ -217,7 +222,10 @@ class DNSPacket:
             count += 4
             answer['tag'] = struct.unpack("!H", bytes[count:count + 2])[0]
             count += 2
-            count += skip_name(bytes[count:])  # TODO: Get signer's name
+            name_len = skip_name(bytes[count:])
+            answer['signer_name'] = bytes[count:count+name_len]
+            #count += skip_name(bytes[count:])  # TODO: Get signer's name
+            count += name_len
             answer['signature'] = str(b64encode(bytes[count:i+answer['rdata_len']]), 'utf-8')
             print("RRSIG: type_covered={}, algorithm={}, labels={}, orig_ttl={}, expiration={}, inception={}, tag={}k, signature={}".format(answer['type_covered'], answer['algorithm'], answer['labels'], answer['orig_ttl'], answer['expiration'], answer['inception'], answer['tag'], answer['signature']))
         elif answer['type'] == self.RR_TYPE_DS:
