@@ -21,7 +21,9 @@ def createSigniture(rr_set, key, rr_sig_header, domain):
 		data += RRSignableData(rr, domain)
 	
 	#data_to_sign = struct.pack("!{0}s{1}s{2}s".format())
-	hashed_data = SHA256.new().update(data).digest()
+	hasher = SHA256.new()
+	hasher.update(data)
+	hashed_data = hasher.digest()
 	import pdb; pdb.set_trace()
 
 
