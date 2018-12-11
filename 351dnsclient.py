@@ -4,6 +4,7 @@ from argparse import ArgumentParser
 import sys
 from DNSPacket import DNSPacket
 from network import UDPCommunication
+import crypto
 
 DEFAULT_PORT = 53
 
@@ -71,15 +72,44 @@ def main():
     #dnskey_response.dump()
 
     # If DNSSEC D0 bit is enabled, the A record fetch will get its RRSIG as well. So manually fetching RRSIGs is unnecessary
-    """
-    print("\n\n\nGetting RRSIG:")
-    query = DNSPacket.newQuery(domain_name, DNSPacket.RR_TYPE_RRSIG, using_dnssec=True)
-    connection.sendPacket(resolver_address, query)
-    rrsig_response = connection.waitForPacket()
-    print("\nrrsig_response packet:")
-    rrsig_response.dump()
-    """
 
+
+    # todo: move crypto stuff into its own file at some point
+    print('\n\n\nValidating the A RRSET:')
+    rr_set = []
+    arecord_sig = None
+    for answer in arecord_response.answers:
+        if answer['type'] == DNSPacket.RR_TYPE_A:
+            rr_set.append(answer)
+        elif answer['type'] == DNSPacket.RR_TYPE_RRSIG:
+            arecord_sig = answer
+    if len(rr_set) == 0  or  arecord_sig == None:
+        print("ERROR: Unable to find A records and signiture")
+        sys.exit(1)
+
+    ## ==== TO DO: The RRset needs to be sorted into canonical order. May get the wrong answer otherwise. That should just mean calling sort with the right arguments here
+    # https://tools.ietf.org/html/rfc4034#section-3.1.8.1
+    # https://tools.ietf.org/html/rfc4034#section-3.1.8.1
+
+    #print("rr_set:", rr_set)
+    #print("arecord_sig:", arecord_sig)
+
+    keys = []
+    for answer in dnskey_response.answers:
+        if answer['type'] == DNSPacket.RR_TYPE_DNSKEY:  #and  answer['sep'] == 1:
+            keys.append(answer)
+    if len(keys) == 0:
+        print("ERROR Cannot find any keys")
+        sys.exit(1)
+    #print("keys:", keys)
+
+    # RFC on signiture calculation: https://tools.ietf.org/html/rfc4034#section-3.1
+    a = crypto.RRSignableData(rr_set[0], 'verisignlabs.com')
+    import pdb; pdb.set_trace()
+
+
+
+    """
     # Now, fetch DS record from parent zone:
     split_domain = domain_name.split('.')
     parent_domain = '.'.join(split_domain[1:])
@@ -89,6 +119,7 @@ def main():
     ds_response = connection.waitForPacket()
     print("\narecord_response packet:")
     ds_response.dump()
+    """
 
 
 if __name__ == '__main__':

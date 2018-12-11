@@ -135,7 +135,7 @@ class DNSPacket:
         i = 0
         if (bytes[i] >> 6) == 0b11:
             # Name is stored as a 2-byte pointer. We will just ignore this for now
-            # print("Name is stored as a pointer")
+            print("Name is stored as a pointer")
             i += 2
         else:
             # Not a pointer.. parse out the string
@@ -152,13 +152,18 @@ class DNSPacket:
                 else:
                     domain.append(bytes[i: i + num_bytes])
                     i += num_bytes
-                    # print("Read domain:", domain[len(domain) - 1].decode('utf-8'))
+                    print("Read domain:", domain[len(domain) - 1].decode('utf-8'))
+        # The raw bytes of the name field
+        answer['raw_name'] = bytes[:i]
+        #answer['name'] = domain
 
         # ! = indicates "network" byte order and int sizes
         # I = unsigned int, 4 bytes
         # H = unisigned short, 2 bytes
         # B = unsigned char, 1 byte
         (answer['type'], answer['class'], answer['ttl'], answer['rdata_len']) = struct.unpack("!HHIH", bytes[i:i + 10])
+        answer['rdata'] = bytes[i:10:]
+
         print("Type:", answer['type'], bytes[i:i + 2])
         print("Class:", answer['class'], bytes[i:i + 2])
         print("TTL:", answer['ttl'], bytes[i:i + 4])
