@@ -35,7 +35,7 @@ be in the rr, but we never figured out the pointer name storage thing
 """
 def RRSignableData(rr, owner):
 	formatted_owner = formatName(owner)
-	return struct.pack("{0}sHHIH{1}s ".format(len(formatted_owner), rr['rdata_len']), formatted_owner ,rr['type'], rr['class'], rr['ttl'], rr['rdata_len'], rr['rdata'])
+	return struct.pack("{0}sHHIH{1}s ".format(len(formatted_owner), rr.rdata_len), formatted_owner ,rr.type, rr.clazz, rr.ttl, rr.rdata_len, rr.rdata)
 
 
 
