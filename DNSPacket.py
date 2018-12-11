@@ -36,6 +36,10 @@ class DNSPacket:
     RR_TYPE_DS = 43
     RR_TYPE_RRSIG = 46
 
+    # https://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml
+    ALGO_TYPE_RSASHA1 = 5
+    ALGO_TYPE_RSASHA256 = 8
+
     HEADER_LEN = 12
 
     def __init__(self):
