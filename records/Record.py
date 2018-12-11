@@ -54,7 +54,7 @@ class DNSKeyRecord(Record):
 
 class RRSigRecord(Record):
     def __init__(self, type, clazz, ttl, rdata_len, rdata,
-                 type_covered, algorithm, labels, orig_ttl, expiration, inception, tag, signature):
+                 type_covered, algorithm, labels, orig_ttl, expiration, inception, tag, signer_name, signature):
         super().__init__(type, clazz, ttl, rdata_len, rdata)
         self.type_covered = type_covered
         self.algorithm = algorithm
@@ -65,6 +65,7 @@ class RRSigRecord(Record):
         self.inception = inception
         assert inception < datetime.today()
         self.tag = tag
+        self.signer_name = signer_name
         self.signature = signature
 
     def printable_signature(self):
@@ -148,9 +149,11 @@ def parse_record(bytes):
         count += 4
         tag = struct.unpack("!H", bytes[count:count + 2])[0]
         count += 2
-        count += skip_name(bytes[count:])  # TODO: Get signer's name
+        name_len = skip_name(bytes[count:])  # TODO: Get signer's name
+        signer_name = bytes[count:name_len]
+        count += name_len
         signature = bytes[count:i + rdata_len]
-        return i + rdata_len, RRSigRecord(type, clazz, ttl, rdata_len, rdata, type_covered, algorithm, labels, orig_ttl, expiration, inception, tag, signature)
+        return i + rdata_len, RRSigRecord(type, clazz, ttl, rdata_len, rdata, type_covered, algorithm, labels, orig_ttl, expiration, inception, tag, signer_name, signature)
     elif type == DNSPacket.DNSPacket.RR_TYPE_DS:
         count = i + 2
         key_id = int(struct.unpack("!H", bytes[i:count])[0])

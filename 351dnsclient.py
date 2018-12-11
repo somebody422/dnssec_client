@@ -2,6 +2,8 @@
 
 from argparse import ArgumentParser
 import sys
+import time
+
 from DNSPacket import DNSPacket
 from network import UDPCommunication
 import crypto
@@ -63,6 +65,8 @@ def main():
     print("\narecord_response packet:")
     # arecord_response.dump()
 
+    time.sleep(3)
+
     print("\n\n\nGetting Key:")
     query = DNSPacket.newQuery(domain_name, DNSPacket.RR_TYPE_DNSKEY, using_dnssec=True)
     connection.sendPacket(resolver_address, query)
@@ -81,7 +85,7 @@ def main():
             rr_set.append(answer)
         elif answer.type == DNSPacket.RR_TYPE_RRSIG:
             arecord_sig = answer
-    if len(rr_set) == 0 or arecord_sig == None:
+    if len(rr_set) == 0 or arecord_sig is None:
         print("ERROR: Unable to find A records and signiture")
         sys.exit(1)
 
@@ -104,14 +108,14 @@ def main():
 
     # a = crypto.RRSignableData(rr_set[0], 'verisignlabs.com')
     # todo: handle more algorithms
-    if arecord_sig['algorithm'] != DNSPacket.ALGO_TYPE_RSASHA256:
-        print("ERROR: Don't know algorithm:", arecord_sig['algorithm'])
+    if arecord_sig.algorithm != DNSPacket.ALGO_TYPE_RSASHA256:
+        print("ERROR: Don't know algorithm:", arecord_sig.algorithm)
         sys.exit(1)
 
-    print("Sig from server: ", arecord_sig['rdata'])
+    print("Sig from server: ", arecord_sig.rdata)
     for key in keys:
         # To create a signiture we need the rrsig fields.. Just use the one we got with the a records
-        sig_header = arecord_sig['rdata'][: 18 + len(arecord_sig['signer_name'])]
+        sig_header = arecord_sig.rdata[: 18 + len(arecord_sig.signer_name)]
         #import pdb; pdb.set_trace()
         sig = crypto.createSigniture(rr_set, key, sig_header, domain_name)
 
