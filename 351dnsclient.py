@@ -115,7 +115,6 @@ def main():
         sys.exit(1)
     # print("keys:", keys)
 
-
     # a = crypto.RRSignableData(rr_set[0], 'verisignlabs.com')
     # todo: handle more algorithms
     if arecord_sig.algorithm != DNSPacket.ALGO_TYPE_RSASHA256:
@@ -123,23 +122,13 @@ def main():
         sys.exit(1)
 
     print("Sig from server: ", arecord_sig.rdata)
-    hashed_rrset = crypto.createRRSetHash(rr_set, key, sig_header, domain_name)
-
-
-    #for key in keys:
-        # try each key on the sig, find one that matches hashd_rrset
-
-
-
-
-
-
 
     for key in keys:
         # To create a signiture we need the rrsig fields.. Just use the one we got with the a records
         sig_header = arecord_sig.rdata[: 18 + len(arecord_sig.signer_name)]
         # sig = crypto.createSigniture(rr_set, key, sig_header, domain_name)
-        print(crypto.verify_signature(arecord_sig.signature, key.key, rr_set[0].rdata))
+        hashed_rrset = crypto.createRRSetHash(rr_set, sig_header, domain_name)
+        print(crypto.verify_signature(arecord_sig.signature, key, hashed_rrset))
 
     """
     # Now, fetch DS record from parent zone:
