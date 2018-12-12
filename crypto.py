@@ -12,20 +12,18 @@ from Crypto.Hash import SHA256
 from Crypto.Signature import PKCS1_v1_5
 from Crypto import Random
 
-
 """
+Puts together data for an RRSet and computes hash
 https://tools.ietf.org/html/rfc4034#section-3.1.8.1
 """
-def createSigniture(rr_set, key, rr_sig_header, domain):
-	rr_set_signable = []
-	#data = struct.pack("!HBBIIIB{0}s".format(len(rr_sig['signer_name'])), rr_sig['type'], rr_sig['algo'], len(domain)
+def createRRSetHash(rr_set, rr_sig_header, domain):
 	data = rr_sig_header
 	for rr in rr_set:
-		#rr_set_signable.append(RRSignableData(rr, domain))
 		data += RRSignableData(rr, domain)
 
-	#data_to_sign = struct.pack("!{0}s{1}s{2}s".format())
-	hashed_data = SHA256.new().update(data).digest()
+	hasher = SHA256.new()
+	hasher.update(data)
+	return hasher.digest()
 
 
 
