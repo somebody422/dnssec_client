@@ -55,7 +55,7 @@ def main():
     # THIS SHOULD NOT BE HERE IN THE FINAL VERSION!
     # Since we are working on different parts of the project, this should help us avoiding having to comment out blocks of code then having merges be a giant mess
     # Just set one to False if you don't want all that output/printing
-    doing_rrsig_verification = True
+    doing_rrsig_verification = False
     doing_ds_verification = True
 
 
@@ -140,32 +140,78 @@ def main():
 
 
     if doing_ds_verification:
-        print("\n\n\nGetting DS record from {}".format(parent_domain))
-        # Now, fetch DS record from parent zone:
+        print("\n\n\n\nDoing DS Verification:")
+        if verifyZone(domain_name, connection, resolver_address):
+            print("{0} Has been verified!".format(domain_name))
+        else:
+            print("Unable to verify {0}".format(domain_name))
+
+"""
+Attempts to verify the public key of the given zone by establishing PKI from root
+"""
+def verifyZone(domain_name, connection, resolver_address):
+    split_domain = domain_name.split('.')
+    parent_domain = '.'.join(split_domain[1:])
+    for i in range(len(split_domain)):
+        cur_domain = '.'.join(split_domain[i:])
+        parent_domain = '.'.join(split_domain[i+1:])
+        print("\n\nVerifying {0} key using {1}".format(cur_domain, parent_domain))
         
-        query = DNSPacket.newQuery(domain_name, DNSPacket.RR_TYPE_DS, using_dnssec=True)
+
+        # Fetch DS records
+        query = DNSPacket.newQuery(cur_domain, DNSPacket.RR_TYPE_DS, using_dnssec=True)
         connection.sendPacket(resolver_address, query)
         ds_response = connection.waitForPacket()
-        print("\narecord_response packet:")
-        ds_response.dump()
+        #print("\nds record packet:")
+        #ds_response.dump()
 
+        # Pull DS records out from the response
         ds_records = []
         for answer in ds_response.answers:
             if answer.type == DNSPacket.RR_TYPE_DS:
                 ds_records.append(answer)
         if len(ds_records) == 0:
-            print("ERROR: Received no DS records from parent zone")
-            sys.exit(1)
+            print("ERROR: Received no DS records")
+            return False
+        print("\nFound {0} ds records".format(len(ds_records)))
 
+        # Fetch DNSKEY records
+        query = DNSPacket.newQuery(cur_domain, DNSPacket.RR_TYPE_DNSKEY, using_dnssec=True)
+        connection.sendPacket(resolver_address, query)
+        dnskey_response = connection.waitForPacket()
+        #print("\ndnskey_response packet:")
+        # dnskey_response.dump()
+
+        # Pull keys from the response
+        keys = []
+        for answer in dnskey_response.answers:
+            if answer.type == DNSPacket.RR_TYPE_DNSKEY:  # and  answer['sep'] == 1:
+                keys.append(answer)
+        if len(keys) == 0:
+            print("ERROR: Received no keys")
+            return False
+        print("\nFound {0} keys".format(len(keys)))
+
+        # Try to validate a key, any key
+        key_validated = False
         for ds_record in ds_records:
             for key in keys:
-                #print("Testing key {0} against DS record {1}".format(key, ds_record))
                 ds_digest = ds_record.digest
-                key_hashed = crypto.createDSRecord(key, domain_name)
+                key_hashed = crypto.createDSRecord(key, cur_domain)
                 print("\nDS hash: ", ds_digest)
                 print("DNSKEY hash:", key_hashed)
                 if ds_digest == key_hashed:
                     print("MATCH WOOHOO")
+                    key_validated = True
+                    break
+            if key_validated:
+                break
+        else:
+            print("ERROR: Unable to validate any DNSKEY with parent zone")
+            return False
+    # We made it!
+    return True
+
 
 
     

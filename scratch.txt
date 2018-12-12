@@ -36,7 +36,7 @@ Chain of Trust - More or less follows this process:
 
 ### Road Map
 1. Figure out the roadmap
-
+2. Hey look sam drew a map vvvv
 
 my suggestion for where to go from here. using 'example.com' as an example  -sam
 	- Make sure we get RRSIG, DNSKEY and A from example.com
