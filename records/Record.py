@@ -81,7 +81,7 @@ class RRSigRecord(Record):
 class DSRecord(Record):
     def __init__(self, name, type, clazz, ttl, rdata_len, rdata,
                  key_id, algorithm, digest_type, digest):
-        super().__init__(type, clazz, ttl, rdata_len, rdata)
+        super().__init__(name, type, clazz, ttl, rdata_len, rdata)
         self.key_id = key_id
         self.algorithm = algorithm
         self.digest_type = digest_type,
@@ -109,12 +109,12 @@ def parse_record(bytes):
     # H = unisigned short, 2 bytes
     # B = unsigned char, 1 byte
     (type, clazz, ttl, rdata_len) = struct.unpack("!HHIH", bytes[i:i + 10])
-    rdata = bytes[i:10]
     # print("Type:", answer['type'], bytes[i:i + 2])
     # print("Class:", answer['class'], bytes[i:i + 2])
     # print("TTL:", answer['ttl'], bytes[i:i + 4])
     # print("rdata len:", answer['rdata_len'], bytes[i:i + 2])
     i += 10
+    rdata = bytes[i : i+rdata_len]
 
     if type == DNSPacket.DNSPacket.RR_TYPE_A:
         if rdata_len == 4:
@@ -163,7 +163,7 @@ def parse_record(bytes):
         digest_type = ord(bytes[count:count + 1])
         count += 1
         digest = bytes[count:i + rdata_len]
-        return DSRecord(name, type, clazz, ttl, rdata_len, rdata, key_id, algorithm, digest_type, digest)
+        return i + rdata_len, DSRecord(name, type, clazz, ttl, rdata_len, rdata, key_id, algorithm, digest_type, digest)
     else:
         return i + rdata_len, None
 

@@ -65,7 +65,7 @@ def main():
     print("\narecord_response packet:")
     # arecord_response.dump()
 
-    time.sleep(3)
+    #time.sleep(3)
 
     print("\n\n\nGetting Key:")
     query = DNSPacket.newQuery(domain_name, DNSPacket.RR_TYPE_DNSKEY, using_dnssec=True)
@@ -109,7 +109,7 @@ def main():
     keys = []
     for answer in dnskey_response.answers:
         if answer.type == DNSPacket.RR_TYPE_DNSKEY:  # and  answer['sep'] == 1:
-            keys.append(answer.key)
+            keys.append(answer)
     if len(keys) == 0:
         print("ERROR Cannot find any keys")
         sys.exit(1)
@@ -122,8 +122,8 @@ def main():
         print("ERROR: Don't know algorithm:", arecord_sig.algorithm)
         sys.exit(1)
 
-    print("Sig from server: ", arecord_sig.rdata)
-    hashed_rrset = crypto.createRRSetHash(rr_set, key, sig_header, domain_name)
+    #print("Sig from server: ", arecord_sig.rdata)
+    #hashed_rrset = crypto.createRRSetHash(rr_set, key, sig_header, domain_name)
     
 
     #for key in keys:
@@ -133,10 +133,6 @@ def main():
 
 
 
-
-
-
-    """
     # Now, fetch DS record from parent zone:
     split_domain = domain_name.split('.')
     parent_domain = '.'.join(split_domain[1:])
@@ -146,7 +142,27 @@ def main():
     ds_response = connection.waitForPacket()
     print("\narecord_response packet:")
     ds_response.dump()
-    """
+
+    ds_records = []
+    for answer in ds_response.answers:
+        if answer.type == DNSPacket.RR_TYPE_DS:
+            ds_records.append(answer)
+    if len(ds_records) == 0:
+        print("ERROR: Received no DS records from parent zone")
+        sys.exit(1)
+
+    for ds_record in ds_records:
+        for key in keys:
+            #print("Testing key {0} against DS record {1}".format(key, ds_record))
+            ds_digest = ds_record.digest
+            key_hashed = crypto.createDSRecord(key, domain_name)
+            print("\nDS hash: ", ds_digest)
+            print("DNSKEY hash:", key_hashed)
+            if ds_digest == key_hashed:
+                print("MATCH WOOHOO")
+
+
+    
 
 
 if __name__ == '__main__':

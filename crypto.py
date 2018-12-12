@@ -23,6 +23,21 @@ def createRRSetHash(rr_set, rr_sig_header, domain):
 
 
 
+"""
+A DS record is just the hash of a public key
+Uses SHA256
+"""
+def createDSRecord(dnskey, domain):
+
+	data = formatName(domain)
+
+	data += dnskey.rdata
+
+	hasher = SHA256.new()
+	hasher.update(data)
+	return hasher.digest()
+
+
 
 """
 Puts a domain name into that form DNS loves so much
@@ -31,7 +46,6 @@ name: A domain name string
 """
 def formatName(name):
 	name_bytes = bytearray(len(name) + 2)
-
 	i = 0
 	for domain in name.split('.'):
 		name_bytes[i] = len(domain)
