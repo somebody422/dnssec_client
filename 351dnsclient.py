@@ -65,7 +65,7 @@ def main():
     print("\narecord_response packet:")
     # arecord_response.dump()
 
-    time.sleep(3)
+    time.sleep(1)
 
     print("\n\n\nGetting Key:")
     query = DNSPacket.newQuery(domain_name, DNSPacket.RR_TYPE_DNSKEY, using_dnssec=True)
@@ -86,7 +86,7 @@ def main():
         elif answer.type == DNSPacket.RR_TYPE_RRSIG:
             arecord_sig = answer
     if len(rr_set) == 0 or arecord_sig is None:
-        print("ERROR: Unable to find A records and signiture")
+        print("ERROR\tUnable to find A records and signature")
         sys.exit(1)
 
     ## ==== TO DO: The RRset needs to be sorted into canonical order. May get the wrong answer otherwise. That should just mean calling sort with the right arguments here
@@ -105,7 +105,6 @@ def main():
         sys.exit(1)
     # print("keys:", keys)
 
-
     # a = crypto.RRSignableData(rr_set[0], 'verisignlabs.com')
     # todo: handle more algorithms
     if arecord_sig.algorithm != DNSPacket.ALGO_TYPE_RSASHA256:
@@ -116,17 +115,10 @@ def main():
     for key in keys:
         # To create a signiture we need the rrsig fields.. Just use the one we got with the a records
         sig_header = arecord_sig.rdata[: 18 + len(arecord_sig.signer_name)]
-        #import pdb; pdb.set_trace()
-        sig = crypto.createSigniture(rr_set, key, sig_header, domain_name)
+        # sig = crypto.createSigniture(rr_set, key, sig_header, domain_name)
+        print(crypto.verify_signature(arecord_sig.signature, key.key, rr_set[0].rdata))
 
-
-
-
-
-
-
-
-    """
+        """
     # Now, fetch DS record from parent zone:
     split_domain = domain_name.split('.')
     parent_domain = '.'.join(split_domain[1:])
@@ -137,6 +129,7 @@ def main():
     print("\narecord_response packet:")
     ds_response.dump()
     """
+
 
 
 if __name__ == '__main__':

@@ -3,10 +3,14 @@
 The hashing and sha stuff
 
 """
+from Crypto.PublicKey import RSA
 
 from util import insertBytes
 import struct
+import DNSPacket
 from Crypto.Hash import SHA256
+from Crypto.Signature import PKCS1_v1_5
+from Crypto import Random
 
 
 """
@@ -22,7 +26,6 @@ def createSigniture(rr_set, key, rr_sig_header, domain):
 
 	#data_to_sign = struct.pack("!{0}s{1}s{2}s".format())
 	hashed_data = SHA256.new().update(data).digest()
-	import pdb; pdb.set_trace()
 
 
 
@@ -63,4 +66,22 @@ def RRSignableData(rr, owner):
 	return struct.pack("{0}sHHIH{1}s ".format(len(formatted_owner), rr.rdata_len), formatted_owner ,rr.type, rr.clazz, rr.ttl, rr.rdata_len, rr.rdata)
 
 
+def verify_signature(signature, key, recordset):
+	expo, mod = get_expo_and_mod(key)
+	constructed_key = RSA.construct((mod, expo))
+	cipher = PKCS1_v1_5.new(constructed_key)
+	return cipher.verify(signature, SHA256.new(recordset).digest())
+
+
+def get_expo_and_mod(key):
+	data = bytearray(key)
+	cursor = 1
+	expo_len = int.from_bytes([data[0]], 'big')
+	if expo_len == 0:
+		expo_len = int.from_bytes(data[1:3], 'big')
+		cursor = 3
+	expo = int.from_bytes(data[cursor:cursor + expo_len], 'big')
+	cursor += expo_len
+	mod = int.from_bytes(data[cursor:], 'big')
+	return expo, mod
 
