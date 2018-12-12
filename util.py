@@ -5,6 +5,10 @@ Small utility functions which don't have a home :(
 
 
 # Replaces values in bytearray with values from bytes, starting at index
+from datetime import datetime
+import struct
+
+
 def insertBytes(ba, b, index):
     for i in range(index, min(len(ba), len(b) + index)):
         ba[i] = b[i - index]
@@ -67,7 +71,6 @@ def skip_name(bytes):
 
 
 def parse_name(bytes):
-    domain = None
     i = 0
     if (bytes[i] >> 6) == 0b11:
         # Name is stored as a 2-byte pointer. We will just ignore this for now
@@ -81,7 +84,7 @@ def parse_name(bytes):
         while reading_domain_string:
             num_bytes = bytes[i]
             # print("num_bytes =", num_bytes)
-            domain.append(num_bytes)
+            domain.append(num_bytes.to_bytes(1, byteorder='big'))
             i += 1
             if num_bytes == 0:
                 # A zero byte means the domain part is done
@@ -90,6 +93,9 @@ def parse_name(bytes):
             else:
                 domain.append(bytes[i: i + num_bytes])
                 i += num_bytes
-                print("Read domain:", domain[len(domain) - 1].decode('utf-8'))
 
     return i, domain
+
+
+def ts_to_dt(ts):
+    return datetime.fromtimestamp(struct.unpack("!I", ts)[0])
