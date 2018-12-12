@@ -4,6 +4,7 @@ Represents a DNS packet. Will build a query to send to server, or parse through 
 import struct
 
 from records.Record import parse_record
+import records.Record
 from util import *
 
 RCODE = {0: 'No error. The request completed successfully.',
@@ -44,7 +45,7 @@ class DNSPacket:
 
     def __init__(self):
         self.header = bytearray(DNSPacket.HEADER_LEN)
-        self.name = 0
+        self.name = b''
 
     @classmethod
     def newQuery(cls, url, question_type, using_dnssec=False):
@@ -111,7 +112,8 @@ class DNSPacket:
             if count == self.HEADER_LEN:
                 temp = parse_name(b[count:])
                 count += temp[0]
-                self.name = temp[1]
+                for s in temp[1]:
+                    self.name += s
             else:
                 count += skip_name(b[count:])
             count += 4  # Skip Type and Class
@@ -127,7 +129,9 @@ class DNSPacket:
         count = 0
         for _ in range(self.num_answers):
             result = parse_record(b[count:])
-            if len(result[1].name) == 2:
+            if isinstance(result[1], records.Record.RRSigRecord):
+                result[1].signer_name = self.name
+            elif len(result[1].name) == 2:
                 result[1].name = self.expand_name(b, result[1].name)
             count += result[0]
             print(result[1])

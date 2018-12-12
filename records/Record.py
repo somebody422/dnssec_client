@@ -4,7 +4,7 @@ import DNSPacket
 from datetime import datetime
 from base64 import b64encode
 
-from util import parse_name, skip_name
+from util import parse_name, skip_name, ts_to_dt
 
 
 class Record:
@@ -62,9 +62,9 @@ class RRSigRecord(Record):
         self.labels = labels
         self.orig_ttl = orig_ttl
         self.expiration = expiration
-        assert expiration > datetime.today()
+        assert ts_to_dt(expiration) > datetime.today()
         self.inception = inception
-        assert inception < datetime.today()
+        assert ts_to_dt(inception) < datetime.today()
         self.tag = tag
         self.signer_name = signer_name
         self.signature = signature
@@ -74,8 +74,8 @@ class RRSigRecord(Record):
 
     def __str__(self):
         return "RRSIG: type_covered={}, algorithm={}, labels={}, orig_ttl={}, expiration={}, inception={}, tag={}k, signature={}".format(
-            self.type_covered, self.algorithm, self.labels, self.orig_ttl, self.expiration,
-            self.inception, self.tag, self.signature)
+            self.type_covered, self.algorithm, self.labels, self.orig_ttl, ts_to_dt(self.expiration),
+            ts_to_dt(self.inception), self.tag, self.signature)
 
 
 class DSRecord(Record):
@@ -140,9 +140,9 @@ def parse_record(bytes):
         count += 1
         orig_ttl = struct.unpack("!I", bytes[count:count + 4])[0]
         count += 4
-        expiration = datetime.fromtimestamp(struct.unpack("!I", bytes[count:count + 4])[0])
+        expiration = bytes[count:count + 4]
         count += 4
-        inception = datetime.fromtimestamp(struct.unpack("!I", bytes[count:count + 4])[0])
+        inception = bytes[count:count + 4]
         count += 4
         tag = struct.unpack("!H", bytes[count:count + 2])[0]
         count += 2
@@ -162,5 +162,3 @@ def parse_record(bytes):
         return i + rdata_len, DSRecord(name, type, clazz, ttl, rdata_len, rdata, key_id, algorithm, digest_type, digest)
     else:
         return i + rdata_len, None
-
-

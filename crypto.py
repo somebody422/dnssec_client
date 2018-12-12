@@ -3,14 +3,13 @@
 The hashing and sha stuff
 
 """
+import struct
+
+from Crypto.Hash import SHA256
 from Crypto.PublicKey import RSA
+from Crypto.Signature import PKCS1_v1_5
 
 from util import insertBytes
-import struct
-import DNSPacket
-from Crypto.Hash import SHA256
-from Crypto.Signature import PKCS1_v1_5
-from Crypto import Random
 
 """
 Puts together data for an RRSet and computes hash
@@ -18,29 +17,33 @@ https://tools.ietf.org/html/rfc4034#section-3.1.8.1
 """
 
 
-def createRRSetHash(rr_set, rr_sig_header, domain):
-    data = rr_sig_header
-    for rr in rr_set:
-        data += RRSignableData(rr, domain)
+def createRRSetHash(rr_set, rrsig_record, domain):
+    data = rrsig_record.type_covered.to_bytes(2, 'big') + \
+           rrsig_record.algorithm.to_bytes(1, 'big') + rrsig_record.labels.to_bytes(1, 'big') + \
+           rrsig_record.orig_ttl.to_bytes(4, 'big') + rrsig_record.expiration + \
+           rrsig_record.inception + rrsig_record.tag.to_bytes(2, 'big') + \
+           rrsig_record.signer_name
 
-    hasher = SHA256.new()
-    hasher.update(data)
-    return hasher.digest()
+    for rr in rr_set:
+        data += RRSignableData(rr, domain, rrsig_record.orig_ttl)
+
+    return data
+
 
 """
 A DS record is just the hash of a public key
 Uses SHA256
 """
+
+
 def createDSRecord(dnskey, domain):
+    data = formatName(domain)
 
-	data = formatName(domain)
+    data += dnskey.rdata
 
-	data += dnskey.rdata
-
-	hasher = SHA256.new()
-	hasher.update(data)
-	return hasher.digest()
-
+    hasher = SHA256.new()
+    hasher.update(data)
+    return hasher.digest()
 
 
 """
@@ -73,14 +76,14 @@ be in the rr, but we never figured out the pointer name storage thing
 """
 
 
-def RRSignableData(rr, owner):
+def RRSignableData(rr, owner, orig_ttl):
     # TODO: Should the name stay in pointer format? Here i am using labels.
     formatted_owner = formatName(owner)
     # print("formatted_owner:", formatted_owner)
     # print("ttl:", rr['ttl'])
     # print("type:", rr['type'])
-    return struct.pack("{0}sHHIH{1}s ".format(len(formatted_owner), rr.rdata_len), formatted_owner, rr.type, rr.clazz,
-                       rr.ttl, rr.rdata_len, rr.rdata)
+    return formatted_owner + rr.type.to_bytes(2, 'big') + rr.clazz.to_bytes(2, 'big') + \
+           orig_ttl.to_bytes(4, 'big') + rr.rdata_len.to_bytes(2, 'big') + rr.rdata
 
 
 def verify_signature(signature, key, recordset):
@@ -101,7 +104,3 @@ def get_expo_and_mod(dnskey):
     cursor += expo_len
     mod = int.from_bytes(data[cursor:], 'big')
     return expo, mod
-
-
-def make_sig(RRSig, rr_set):
-    pass
