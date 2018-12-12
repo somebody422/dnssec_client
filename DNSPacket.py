@@ -134,7 +134,7 @@ class DNSPacket:
             elif len(result[1].name) == 2:
                 result[1].name = self.expand_name(b, result[1].name)
             count += result[0]
-            print(result[1])
+            # print(result[1])
             self.answers.append(result[1])
 
     def createDnsHeader(self, num_questions, num_answers, num_ns, num_additional):
@@ -205,6 +205,7 @@ class DNSPacket:
         if self.rcode != 0:
             if self.rcode == 3:
                 print("NOTFOUND")
+                exit(0)
             elif self.rcode in RCODE:
                 print("ERROR\t" + RCODE[self.rcode])
             else:

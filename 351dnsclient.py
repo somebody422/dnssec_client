@@ -21,23 +21,25 @@ def getArgumentDict():
     return vars(args)
 
 
-def main():
-    args = getArgumentDict()
-    domain_name = args['domain-name']
-
-    # Parse out server
-    addr = args['server']
+def parse_server(addr):
     if addr[0] != '@':
         print("ERROR\tServer must start with \"@\" symbol!")
         sys.exit(0)
     split_addr = addr.split(':')
     ip = split_addr[0][1:]
     port = split_addr[1] if len(split_addr) > 1 else DEFAULT_PORT
-    resolver_address = (ip, port)
+    return ip, port
+
+
+def main():
+    args = getArgumentDict()
+    domain_name = args['domain-name']
+
+    resolver_address = parse_server(args['server'])
 
     record = args['record']
     if record not in ["A", "DNSKEY", "DS"]:
-        print("ERROR\t" + str(record) + " not supported")
+        print("ERROR\t" + str(record) + " NOT SUPPORTED")
 
     connection = UDPCommunication()
 
@@ -50,33 +52,73 @@ def main():
     split_domain = domain_name.split('.')
     parent_domain = '.'.join(split_domain[1:])
 
-    # THIS SHOULD NOT BE HERE IN THE FINAL VERSION!
-    # Since we are working on different parts of the project, this should help us avoiding having to comment out blocks of code then having merges be a giant mess
-    # Just set one to False if you don't want all that output/printing
-    doing_rrsig_verification = False
-    doing_ds_verification = True
+    if query_type == DNSPacket.RR_TYPE_A:
+        print("\n\n\nGetting A Record:")
+        arecord_response = get_record(connection, domain_name, resolver_address, DNSPacket.RR_TYPE_A)
+        rr_set = get_rrset(arecord_response)
+        rrsig_set = get_rrsigs(arecord_response)
+        time.sleep(1)
+        dnskey_response = get_record(connection, domain_name, resolver_address, DNSPacket.RR_TYPE_DNSKEY)
+        keys = get_keys(dnskey_response)
+        associated_rrsig = get_rrsig_for_a_record(keys, rrsig_set, rr_set, domain_name)
+        valid = "INVALID"
+        if verifyZone(domain_name, connection, resolver_address):
+            valid = "VALID"
+        for record in arecord_response.answers:
+            if record.type != DNSPacket.RR_TYPE_RRSIG:
+                print(record, associated_rrsig, valid)
+    if query_type == DNSPacket.RR_TYPE_DNSKEY:
+        # TODO: This doesn't work at all fyi
+        # TODO: also have to handle query_type = DS
+        print("\n\n\nGetting Keys:")
+        query = DNSPacket.newQuery(domain_name, DNSPacket.RR_TYPE_DNSKEY, using_dnssec=True)
+        connection.sendPacket(resolver_address, query)
+        dnskey_response = connection.waitForPacket()
+        print("\nDNSKEY Record Response packet:")
+        keys = get_keys(dnskey_response)
+        # dnskey_response.dump()
+        rrsig_set = get_rrsigs(arecord_response)
+        print("A Record valid:", get_rrsig_for_a_record(keys, rrsig_set, rr_set, domain_name))
 
-    # Testing verifying an A record: ignoring the query type setting for now  -sam
+        query = DNSPacket.newQuery(domain_name, DNSPacket.RR_TYPE_DS, using_dnssec=True)
+        connection.sendPacket(resolver_address, query)
+        ds_response = connection.waitForPacket()
+        print("\nDS record response packet:")
+        # ds_response.dump()
 
-    # Note that while multiple questions in 1 packet is TECHNICALLY supported, it is not the norm and should be
-    # avoided. We will build a different packet for each query
+        rr_set = get_rrset(ds_response)
+        print("DNSKEY valid", validate_DNSKEY_record(keys, rr_set, domain_name, parent_domain))
 
-    print("\n\n\nGetting A Record:")
-    query = DNSPacket.newQuery(domain_name, DNSPacket.RR_TYPE_A, using_dnssec=True)
+
+def validate_response(response, connection, domain_name, parent_domain, resolver_addr):
+    if response.answers[0].type == DNSPacket.RR_TYPE_A:
+        dnskey_response = get_record(connection, domain_name, resolver_addr, DNSPacket.RR_TYPE_DNSKEY)
+        keys = get_keys(dnskey_response)
+        rr_set = get_rrset(response)
+        rrsig_set = get_rrsigs(response)
+        if get_rrsig_for_a_record(keys, rrsig_set, rr_set, domain_name):
+            validate_response(dnskey_response, connection, domain_name, resolver_addr)
+        else:
+            print("ERROR\tA Record invalid")
+    elif response.answers[0].type == DNSPacket.RR_TYPE_DNSKEY:
+        ds_response = get_record(connection, domain_name, resolver_addr, DNSPacket.RR_TYPE_DS)
+        keys = get_keys(response)
+        rr_set = get_rrset(ds_response)
+        if validate_DNSKEY_record(keys, rr_set, domain_name, parent_domain):
+            validate_DNSKEY_record(keys, rr_set, domain_name, parent_domain)
+        else:
+            print("ERROR\tDNSKEY Record invalid")
+    elif response.answers[0].type == DNSPacket.RR_TYPE_DS and parent_domain is not None:
+        print("Not sure what to do here")
+
+
+
+def get_record(connection, domain_name, resolver_address, type):
+    query = DNSPacket.newQuery(domain_name, type, using_dnssec=True)
     connection.sendPacket(resolver_address, query)
-    arecord_response = connection.waitForPacket()
-    print("\narecord_response packet:")
-    # arecord_response.dump()
+    return connection.waitForPacket()
 
-    time.sleep(1)
-
-    print("\n\n\nGetting Keys:")
-    query = DNSPacket.newQuery(domain_name, DNSPacket.RR_TYPE_DNSKEY, using_dnssec=True)
-    connection.sendPacket(resolver_address, query)
-    dnskey_response = connection.waitForPacket()
-    print("\ndnskey_response packet:")
-    # dnskey_response.dump()
-
+def get_keys(dnskey_response):
     keys = []
     for answer in dnskey_response.answers:
         if answer.type == DNSPacket.RR_TYPE_DNSKEY:  # and  answer['sep'] == 1:
@@ -84,68 +126,71 @@ def main():
     if len(keys) == 0:
         print("ERROR Cannot find any keys")
         sys.exit(1)
-    # print("keys:", keys)
+    return keys
 
-    if doing_rrsig_verification:
-        print('\n\n\nValidating the A RRSET:')
-        rr_set = []
-        arecord_sig = None
-        for answer in arecord_response.answers:
-            if answer.type == DNSPacket.RR_TYPE_A:
-                rr_set.append(answer)
-            elif answer.type == DNSPacket.RR_TYPE_RRSIG:
-                arecord_sig = answer
-        if len(rr_set) == 0 or arecord_sig is None:
-            print("ERROR\tUnable to find A records and signature")
+def get_rrsigs(response):
+    rrsig_set = []
+    for answer in response.answers:
+        if answer.type == DNSPacket.RR_TYPE_RRSIG:
+            rrsig_set.append(answer)
+    return rrsig_set
+
+def get_rrset(response):
+    rr_set = []
+    for answer in response.answers:
+        if answer.type != DNSPacket.RR_TYPE_RRSIG:
+            rr_set.append(answer)
+    return rr_set
+
+def get_rrsig_for_a_record(keys, rrsig_set, rr_set, domain_name):
+    ## ==== TO DO: The RRset needs to be sorted into canonical order. May get the wrong answer otherwise. That should just mean calling sort with the right arguments here
+    # https://tools.ietf.org/html/rfc4034#section-3.1.8.1
+    # https://tools.ietf.org/html/rfc4034#section-3.1.8.1
+    """ THIS DOESN'T WORK because pretty much all the domains are using the pointer format. Need to figure that out first
+    # Mucks the domain string to make alphabetic sort put things in canonical order
+    def canonicalSorter(rr):
+        domain = rr.name
+        reversed_split_domain = reversed(domain.split('.'))
+        # merge it into a single string
+        "".join(reversed_split_domain)
+
+    rr_set.sort(key = canonicalSorter)
+    """
+    # todo: handle more algorithms
+    for sig in rrsig_set:
+        if sig.algorithm != DNSPacket.ALGO_TYPE_RSASHA256:
+            print("ERROR\tUNKNOWN ALGORITHM", sig.algorithm)
             sys.exit(1)
-
-        ## ==== TO DO: The RRset needs to be sorted into canonical order. May get the wrong answer otherwise. That should just mean calling sort with the right arguments here
-        # https://tools.ietf.org/html/rfc4034#section-3.1.8.1
-        # https://tools.ietf.org/html/rfc4034#section-3.1.8.1
-        """ THIS DOESN'T WORK because pretty much all the domains are using the pointer format. Need to figure that out first
-        # Mucks the domain string to make alphabetic sort put things in canonical order
-        def canonicalSorter(rr):
-            domain = rr.name
-            reversed_split_domain = reversed(domain.split('.'))
-            # merge it into a single string
-            "".join(reversed_split_domain)
-
-        rr_set.sort(key = canonicalSorter)
-        """
-
-        # print("rr_set:", rr_set)
-        # print("arecord_sig:", arecord_sig)
-
-        # a = crypto.RRSignableData(rr_set[0], 'verisignlabs.com')
-        # todo: handle more algorithms
-        if arecord_sig.algorithm != DNSPacket.ALGO_TYPE_RSASHA256:
-            print("ERROR: Don't know algorithm:", arecord_sig.algorithm)
-            sys.exit(1)
-
-        print("Sig from server: ", arecord_sig.rdata)
-
+        rrset_data = crypto.createRRSetHash(rr_set, sig, domain_name)
         for key in keys:
-            hashed_rrset = crypto.createRRSetHash(rr_set, arecord_sig, domain_name)
-            print(crypto.verify_signature(arecord_sig.signature, key, hashed_rrset))
+            if crypto.verify_signature(sig.signature, key, rrset_data):
+                return sig
+    return False
 
-    if doing_ds_verification:
-        print("\n\n\n\nDoing DS Verification:")
-        if verifyZone(domain_name, connection, resolver_address):
-            print("{0} Has been verified!".format(domain_name))
-        else:
-            print("Unable to verify {0}".format(domain_name))
+def validate_DNSKEY_record(keys, rr_set, domain_name, parent_domain):
+    print("\n\n\nGetting DS record from {}".format(parent_domain))
+    # Now, fetch DS record from parent zone:
 
+    ds_records = rr_set
+    for ds_record in ds_records:
+        for key in keys:
+            # print("Testing key {0} against DS record {1}".format(key, ds_record))
+            ds_digest = ds_record.digest
+            key_hashed = crypto.createDSRecord(key, domain_name)
+            # print("\nDS hash: ", ds_digest)
+            # print("DNSKEY hash:", key_hashed)
+            if ds_digest == key_hashed:
+                return True
 """
 Attempts to verify the public key of the given zone by establishing PKI from root
 """
 def verifyZone(domain_name, connection, resolver_address):
     split_domain = domain_name.split('.')
-    parent_domain = '.'.join(split_domain[1:])
     for i in range(len(split_domain)):
         cur_domain = '.'.join(split_domain[i:])
         parent_domain = '.'.join(split_domain[i+1:])
         print("\n\nVerifying {0} key using {1}".format(cur_domain, parent_domain))
-        
+
 
         # Fetch DS records
         query = DNSPacket.newQuery(cur_domain, DNSPacket.RR_TYPE_DS, using_dnssec=True)

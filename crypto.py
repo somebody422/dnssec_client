@@ -3,7 +3,6 @@
 The hashing and sha stuff
 
 """
-import struct
 
 from Crypto.Hash import SHA256
 from Crypto.PublicKey import RSA

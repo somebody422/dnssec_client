@@ -26,10 +26,10 @@ class ARecord(Record):
         self.auth = auth
 
     def __str__(self):
-        return "IP\t{0}.{1}.{2}.{3}\t{4}".format(self.ip_addr[0],
+        return "IP\t{0}.{1}.{2}.{3}".format(self.ip_addr[0],
                                                  self.ip_addr[1],
                                                  self.ip_addr[2],
-                                                 self.ip_addr[3], "auth" if self.auth else "noauth")
+                                                 self.ip_addr[3])
 
 
 class DNSKeyRecord(Record):
@@ -73,7 +73,7 @@ class RRSigRecord(Record):
         return str(b64encode(self.signature))
 
     def __str__(self):
-        return "RRSIG: type_covered={}, algorithm={}, labels={}, orig_ttl={}, expiration={}, inception={}, tag={}k, signature={}".format(
+        return "RRSIG: type_covered={}, algorithm={}, labels={}, orig_ttl={}, expiration={}, inception={}, tag={}, signature={}".format(
             self.type_covered, self.algorithm, self.labels, self.orig_ttl, ts_to_dt(self.expiration),
             ts_to_dt(self.inception), self.tag, self.signature)
 
@@ -101,7 +101,6 @@ def parse_record(bytes):
     :param bytes: The bytes starting at a record
     :return: a record
     """
-    print("==== Record: ====")
     i, name = parse_name(bytes)
 
     # ! = indicates "network" byte order and int sizes
@@ -117,13 +116,11 @@ def parse_record(bytes):
             ip_addr = bytes[i:i + 4]
             return i + rdata_len, ARecord(name, type, clazz, ttl, rdata_len, rdata, ip_addr, "noauth")
         else:
-            print("Error\trdata length should be 4 for A records")
+            print("Error\tINVALID RDATA LEN FOR A RECORD")
             return
     elif type == DNSPacket.DNSPacket.RR_TYPE_DNSKEY:
         count = i
-        flags = bytes[count:count + 2]  # TODO: print contents of flags
-        # The 'SEP' bit indicates that the DS record in the parent zone uses this key!
-        # 'SEP' = Secure Entry Point
+        flags = bytes[count:count + 2]
         count += 2
         protocol = ord(bytes[count:count + 1])
         count += 1

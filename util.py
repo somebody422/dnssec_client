@@ -74,7 +74,6 @@ def parse_name(bytes):
     i = 0
     if (bytes[i] >> 6) == 0b11:
         # Name is stored as a 2-byte pointer. We will just ignore this for now
-        print("Name is stored as a pointer")
         domain = bytes[i:i+2]
         i += 2
     else:
