@@ -72,6 +72,7 @@ def parse_name(bytes):
     if (bytes[i] >> 6) == 0b11:
         # Name is stored as a 2-byte pointer. We will just ignore this for now
         print("Name is stored as a pointer")
+        domain = bytes[i:i+2]
         i += 2
     else:
         # Not a pointer.. parse out the string
@@ -80,6 +81,7 @@ def parse_name(bytes):
         while reading_domain_string:
             num_bytes = bytes[i]
             # print("num_bytes =", num_bytes)
+            domain.append(num_bytes)
             i += 1
             if num_bytes == 0:
                 # A zero byte means the domain part is done
@@ -89,4 +91,5 @@ def parse_name(bytes):
                 domain.append(bytes[i: i + num_bytes])
                 i += num_bytes
                 print("Read domain:", domain[len(domain) - 1].decode('utf-8'))
+
     return i, domain

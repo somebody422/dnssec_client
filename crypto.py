@@ -73,7 +73,7 @@ def verify_signature(signature, key, recordset):
     expo, mod = get_expo_and_mod(key)
     constructed_key = RSA.construct((mod, expo))
     cipher = PKCS1_v1_5.new(constructed_key)
-    return cipher.verify(signature, SHA256.new(recordset).digest())
+    return cipher.verify(SHA256.new(recordset), signature)
 
 
 def get_expo_and_mod(key):
@@ -87,3 +87,7 @@ def get_expo_and_mod(key):
     cursor += expo_len
     mod = int.from_bytes(data[cursor:], 'big')
     return expo, mod
+
+
+def make_sig(RRSig, rr_set):
+    pass
