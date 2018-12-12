@@ -8,7 +8,8 @@ from util import parse_name, skip_name
 
 
 class Record:
-    def __init__(self, type, clazz, ttl, rdata_len, rdata):
+    def __init__(self, name, type, clazz, ttl, rdata_len, rdata):
+        self.name = name
         self.type = type
         self.clazz = clazz
         self.ttl = ttl
@@ -17,10 +18,10 @@ class Record:
 
 
 class ARecord(Record):
-    def __init__(self, type, clazz, ttl, rdata_len, rdata,
+    def __init__(self, name, type, clazz, ttl, rdata_len, rdata,
                  ip_addr, auth):
         assert rdata_len == 4
-        Record.__init__(self, type, clazz, ttl, rdata_len, rdata)
+        Record.__init__(self, name, type, clazz, ttl, rdata_len, rdata)
         self.ip_addr = ip_addr
         self.auth = auth
 
@@ -32,9 +33,9 @@ class ARecord(Record):
 
 
 class DNSKeyRecord(Record):
-    def __init__(self, type, clazz, ttl, rdata_len, rdata,
+    def __init__(self, name, type, clazz, ttl, rdata_len, rdata,
                  flags, protocol, algorithm, key):
-        Record.__init__(self, type, clazz, ttl, rdata_len, rdata)
+        Record.__init__(self, name, type, clazz, ttl, rdata_len, rdata)
         self.flags = flags
         self.protocol = protocol
         self.algorithm = algorithm
@@ -53,9 +54,9 @@ class DNSKeyRecord(Record):
 
 
 class RRSigRecord(Record):
-    def __init__(self, type, clazz, ttl, rdata_len, rdata,
+    def __init__(self, name, type, clazz, ttl, rdata_len, rdata,
                  type_covered, algorithm, labels, orig_ttl, expiration, inception, tag, signer_name, signature):
-        super().__init__(type, clazz, ttl, rdata_len, rdata)
+        super().__init__(name, type, clazz, ttl, rdata_len, rdata)
         self.type_covered = type_covered
         self.algorithm = algorithm
         self.labels = labels
@@ -78,7 +79,7 @@ class RRSigRecord(Record):
 
 
 class DSRecord(Record):
-    def __init__(self, type, clazz, ttl, rdata_len, rdata,
+    def __init__(self, name, type, clazz, ttl, rdata_len, rdata,
                  key_id, algorithm, digest_type, digest):
         super().__init__(type, clazz, ttl, rdata_len, rdata)
         self.key_id = key_id
@@ -101,7 +102,7 @@ def parse_record(bytes):
     :return: a record
     """
     print("==== Record: ====")
-    i = parse_name(bytes)[0]  # TODO: Domain name in [1]
+    i, name = parse_name(bytes)
 
     # ! = indicates "network" byte order and int sizes
     # I = unsigned int, 4 bytes
@@ -118,7 +119,7 @@ def parse_record(bytes):
     if type == DNSPacket.DNSPacket.RR_TYPE_A:
         if rdata_len == 4:
             ip_addr = bytes[i:i + 4]
-            return i + rdata_len, ARecord(type, clazz, ttl, rdata_len, rdata, ip_addr, "noauth")
+            return i + rdata_len, ARecord(name, type, clazz, ttl, rdata_len, rdata, ip_addr, "noauth")
         else:
             print("Error\trdata length should be 4 for A records")
             return
@@ -133,7 +134,7 @@ def parse_record(bytes):
         algorithm = ord(bytes[count:count + 1])
         count += 1
         key = bytes[count:i + rdata_len]
-        return i + rdata_len, DNSKeyRecord(type, clazz, ttl, rdata_len, rdata, flags, protocol, algorithm, key)
+        return i + rdata_len, DNSKeyRecord(name, type, clazz, ttl, rdata_len, rdata, flags, protocol, algorithm, key)
     elif type == DNSPacket.DNSPacket.RR_TYPE_RRSIG:
         count = i + 2
         type_covered = struct.unpack("!H", bytes[i:count])[0]
@@ -153,7 +154,7 @@ def parse_record(bytes):
         signer_name = bytes[count:name_len]
         count += name_len
         signature = bytes[count:i + rdata_len]
-        return i + rdata_len, RRSigRecord(type, clazz, ttl, rdata_len, rdata, type_covered, algorithm, labels, orig_ttl, expiration, inception, tag, signer_name, signature)
+        return i + rdata_len, RRSigRecord(name, type, clazz, ttl, rdata_len, rdata, type_covered, algorithm, labels, orig_ttl, expiration, inception, tag, signer_name, signature)
     elif type == DNSPacket.DNSPacket.RR_TYPE_DS:
         count = i + 2
         key_id = int(struct.unpack("!H", bytes[i:count])[0])
@@ -162,7 +163,7 @@ def parse_record(bytes):
         digest_type = ord(bytes[count:count + 1])
         count += 1
         digest = bytes[count:i + rdata_len]
-        return DSRecord(type, clazz, ttl, rdata_len, rdata, key_id, algorithm, digest_type, digest)
+        return DSRecord(name, type, clazz, ttl, rdata_len, rdata, key_id, algorithm, digest_type, digest)
     else:
         return i + rdata_len, None
 

@@ -92,6 +92,16 @@ def main():
     ## ==== TO DO: The RRset needs to be sorted into canonical order. May get the wrong answer otherwise. That should just mean calling sort with the right arguments here
     # https://tools.ietf.org/html/rfc4034#section-3.1.8.1
     # https://tools.ietf.org/html/rfc4034#section-3.1.8.1
+    """ THIS DOESN'T WORK because pretty much all the domains are using the pointer format. Need to figure that out first
+    # Mucks the domain string to make alphabetic sort put things in canonical order
+    def canonicalSorter(rr):
+        domain = rr.name
+        reversed_split_domain = reversed(domain.split('.'))
+        # merge it into a single string
+        "".join(reversed_split_domain)
+
+    rr_set.sort(key = canonicalSorter)
+    """
 
     # print("rr_set:", rr_set)
     # print("arecord_sig:", arecord_sig)
@@ -99,7 +109,7 @@ def main():
     keys = []
     for answer in dnskey_response.answers:
         if answer.type == DNSPacket.RR_TYPE_DNSKEY:  # and  answer['sep'] == 1:
-            keys.append(answer)
+            keys.append(answer.key)
     if len(keys) == 0:
         print("ERROR Cannot find any keys")
         sys.exit(1)
@@ -113,11 +123,11 @@ def main():
         sys.exit(1)
 
     print("Sig from server: ", arecord_sig.rdata)
-    for key in keys:
-        # To create a signiture we need the rrsig fields.. Just use the one we got with the a records
-        sig_header = arecord_sig.rdata[: 18 + len(arecord_sig.signer_name)]
-        #import pdb; pdb.set_trace()
-        sig = crypto.createSigniture(rr_set, key, sig_header, domain_name)
+    hashed_rrset = crypto.createRRSetHash(rr_set, key, sig_header, domain_name)
+    
+
+    #for key in keys:
+        # try each key on the sig, find one that matches hashd_rrset
 
 
 

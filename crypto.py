@@ -8,23 +8,18 @@ from util import insertBytes
 import struct
 from Crypto.Hash import SHA256
 
-
 """
+Puts together data for an RRSet and computes hash
 https://tools.ietf.org/html/rfc4034#section-3.1.8.1
 """
-def createSigniture(rr_set, key, rr_sig_header, domain):
-	rr_set_signable = []
-	#data = struct.pack("!HBBIIIB{0}s".format(len(rr_sig['signer_name'])), rr_sig['type'], rr_sig['algo'], len(domain)
+def createRRSetHash(rr_set, rr_sig_header, domain):
 	data = rr_sig_header
 	for rr in rr_set:
-		#rr_set_signable.append(RRSignableData(rr, domain))
 		data += RRSignableData(rr, domain)
 
-	#data_to_sign = struct.pack("!{0}s{1}s{2}s".format())
 	hasher = SHA256.new()
 	hasher.update(data)
-	hashed_data = hasher.digest()
-	import pdb; pdb.set_trace()
+	return hasher.digest()
 
 
 
