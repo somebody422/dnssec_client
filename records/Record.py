@@ -109,10 +109,6 @@ def parse_record(bytes):
     # H = unisigned short, 2 bytes
     # B = unsigned char, 1 byte
     (type, clazz, ttl, rdata_len) = struct.unpack("!HHIH", bytes[i:i + 10])
-    # print("Type:", answer['type'], bytes[i:i + 2])
-    # print("Class:", answer['class'], bytes[i:i + 2])
-    # print("TTL:", answer['ttl'], bytes[i:i + 4])
-    # print("rdata len:", answer['rdata_len'], bytes[i:i + 2])
     i += 10
     rdata = bytes[i : i+rdata_len]
 

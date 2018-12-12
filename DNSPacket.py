@@ -44,6 +44,7 @@ class DNSPacket:
 
     def __init__(self):
         self.header = bytearray(DNSPacket.HEADER_LEN)
+        self.name = 0
 
     @classmethod
     def newQuery(cls, url, question_type, using_dnssec=False):
@@ -107,7 +108,12 @@ class DNSPacket:
         """
         count = self.HEADER_LEN
         for _ in range(self.num_questions):
-            count += skip_name(b[count:])
+            if count == self.HEADER_LEN:
+                temp = parse_name(b[count:])
+                count += temp[0]
+                self.name = temp[1]
+            else:
+                count += skip_name(b[count:])
             count += 4  # Skip Type and Class
         return count
 
@@ -121,6 +127,8 @@ class DNSPacket:
         count = 0
         for _ in range(self.num_answers):
             result = parse_record(b[count:])
+            if len(result[1].name) == 2:
+                result[1].name = self.expand_name(b, result[1].name)
             count += result[0]
             print(result[1])
             self.answers.append(result[1])
@@ -206,8 +214,13 @@ class DNSPacket:
         self.num_additional_records = int.from_bytes(b[10:12], 'big')
         self.questions = []
         self.answers = []
-
         return self
+
+    def expand_name(self, data, pointer):
+        return self.name
+
+
+
 # For testing
 # if __name__ == '__main__':
 # DNSPacket.newFromBytes(DNSPacket.default_header)
