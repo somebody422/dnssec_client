@@ -1,4 +1,2 @@
 
-
-
-virtualenv/env1/
+**/*.pyc

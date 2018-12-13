@@ -1,0 +1,46 @@
+I just like having a place to write down notes/todo/research
+feel free to add to this if you like chris
+
+Not sure if the domain you are testing is dnssec enabled? use this!
+https://dnssec-analyzer.verisignlabs.com/
+
+havn't read through it yet but it looks as thorough as you can get without ino-depth technical stuff. lots of diagrams
+https://www.cloudflare.com/dns/dnssec/how-dnssec-works/
+
+Not too in depth but nice diagram/example
+https://www.fir3net.com/Security/Concepts-and-Terminology/pki-chain-of-trust.html
+
+
+
+=== WHAT ON EARTH IS DNSSEC ====
+Digital Signiture - Hash the data, then encrypt that with private key. If someone (client / receiver) has the public key, data, and the signiture, they can 1) decrypt the signiture and 2) hash the data themselves. Then they compare the hashes.
+
+DNS Zone - A category/group of managed domains. Could be just one or multiple! Zones exist to provide better management/control/authentication than just assigning each domain to a different server.
+
+RRSet - A group of resource records (such as A records for ex)
+
+DS record - Used to identify a zone using its (zone signing) public key. Created using a DNSKey record. DS records contain the following:
+  * Info about algotithms used to generate zone key pair, and hashes
+  * Hash of the DNSKey record
+
+RRSig - The signiture of an RRset, stored as a RR
+
+DNSKey - An RR which contains a public key. Could have been called an RRKey record but oh well too late
+
+Chain of Trust - More or less follows this process:
+  1) You already have the public key of the root server, and trust it. Root zone is current zone.
+  2) Request DS record of next zone from current zone
+  3) Request DNSKey record (public key) from next zone
+  4) Hash the public key in the DNSKey record, and compare it to the hash in the DS record you got from current. If it matches, we now trust this zone!
+  5) Next is now the current zone, repeat from step 2
+
+### Road Map
+1. Figure out the roadmap
+2. Hey look sam drew a map vvvv
+
+my suggestion for where to go from here. using 'example.com' as an example  -sam
+	- Make sure we get RRSIG, DNSKEY and A from example.com
+	- Verify RRSIG by using DNSKEY. I think we use SHA-2-something on the RRSET (probably just the 1 A record we got?) then hash the result?
+	- Next try to get the DS record from 'com' domain. Compare the two, i believe by hashing the 'example.com' DNSKEY and comparing the two
+	- Turn this into a loop which keeps going until parent domain is reached
+	- IDK what to do about root, ask prof about that
