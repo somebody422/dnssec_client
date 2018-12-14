@@ -187,9 +187,9 @@ class DNSPacket:
         dump_packet(self.bytes)
 
     def print(self):
-        print("Answers:")
+        dprint("Answers:")
         for record in self.answers:
-            print("\t",record)
+            dprint("\t",record)
 
 
     def parse_header(self, b, packet_id=0):

@@ -61,25 +61,36 @@ def main():
 
 
     # Regardless of query type, we need to verify the zone's public key first
-    if not verifyZone(domain_name, connection, resolver_address):
+    if not verify_zone(domain_name, connection, resolver_address):
         print("ERROR\tMISSING-DS")
         sys.exit(1)
+
 
     if query_type == DNSPacket.RR_TYPE_A:
         dprint("\n\n\nGetting A Record:")
         arecord_response = get_packet(connection, domain_name, resolver_address, DNSPacket.RR_TYPE_A)
-        rr_set = get_rrset(arecord_response)
-        rrsig_set = get_rrsigs(arecord_response)
-        time.sleep(1)
+        arecord_response.print()
+        rr_set = get_rrset(arecord_response, error_if_empty="ERROR\tMISSING-A")
+        rrsig_set = get_rrsigs(arecord_response, error_if_empty="ERROR\tMISSING-RRSIG")
+        time.sleep(1) #todo: do we need this?
         dnskey_response = get_packet(connection, domain_name, resolver_address, DNSPacket.RR_TYPE_DNSKEY)
-        print("dnskey response:")
-        dnskey_response.print()
-        #dnskey_response.dump()
-        keys = get_keys(dnskey_response)
-        associated_rrsig = validate_A_record(keys, rrsig_set, rr_set, domain_name)
-        if associated_rrsig is not None:
-            # Print out the record info here
-            print("Verified! print output is coming soon to a program near you")
+
+        keys = get_keys(dnskey_response, error_if_empty="ERROR\tMISSING-DNSKEY")
+        key_rrsig_set = get_rrsigs(arecord_response, error_if_empty="ERROR\tMISSING-RRSIG")
+        if validate_RRSET(keys, key_rrsig_set, keys, domain_name) is None:
+            print("ERROR\tINVALID-RRSIG")
+            sys.exit(1)
+
+        #associated_rrsig = validate_A_record(keys, rrsig_set, rr_set, domain_name)
+        associated_rrsig = validate_RRSET(keys, rrsig_set, rr_set, domain_name)
+        for a_record in rr_set:
+            # TODO: What does he want us to print here for the "RRSIG RECORDS" field?
+            if associated_rrsig is not None:
+                print("IP\t{0}.{1}.{2}.{3}\t(RRSIG: tag={4}) VALID".format(a_record.ip_addr[0], a_record.ip_addr[1], a_record.ip_addr[2], a_record.ip_addr[3], associated_rrsig.tag))
+            else:
+                print("IP\t{0}.{1}.{2}.{3}\t(RRSIG: NONE) INVALID".format(a_record.ip_addr[0], a_record.ip_addr[1], a_record.ip_addr[2], a_record.ip_addr[3]))
+                print("ERROR\tINVALID-RRSIG")
+                sys.exit(1)
         """ 
         valid = "INVALID"
         if verifyZone(domain_name, connection, resolver_address):
@@ -89,23 +100,49 @@ def main():
                 dprint(record, associated_rrsig, valid)
         """
 
-    if query_type == DNSPacket.RR_TYPE_DNSKEY:
+    elif query_type == DNSPacket.RR_TYPE_DNSKEY:
         # TODO: This doesn't work at all fyi
         # TODO: also have to handle query_type = DS
         dprint("\n\n\nGetting Keys:")
         dnskey_response = get_packet(connection, domain_name, resolver_address, DNSPacket.RR_TYPE_DNSKEY)
         dprint("\nDNSKEY Record Response packet:")
-        keys = get_keys(dnskey_response)
+        keys = get_keys(dnskey_response, error_if_empty="ERROR\tMISSING-DNSKEY")
         # dnskey_response.dump()
-        rrsig_set = get_rrsigs(arecord_response)
+        rrsig_set = get_rrsigs(dnskey_response, error_if_empty="ERROR\tMISSING-RRSIG")
 
-        # todo?
-        rrset = keys
-
-        associated_rrsig = validate_DNS_record(keys, rrsig_set, rr_set, domain_name)
+        associated_rrsig = validate_RRSET(keys, rrsig_set, keys, domain_name)
         if associated_rrsig is not None:
             # Print out DNSKEY record info here
-            print("Verified! print output is coming soon to a program near you")
+            print("DNSKEY\t????\t(RRSIG: tag={0})\tVALID".format())
+        else:
+            print("DNSKEY\t????\t????\tINVALID")
+            print("ERROR\tINVALID-RRSIG")
+            sys.exit(1)
+
+
+    elif query_type == DNSPacket.RR_TYPE_DS:
+        dprint("\n\n\nGetting DS records")
+        ds_response = get_packet(connection, domain_name, resolver_address, DNSPacket.RR_TYPE_DS)
+        ds_rr_set = get_rrset(ds_response, error_if_empty="ERROR\tMISSING-DS")
+        ds_rrsig_set = get_rrsigs(ds_response, error_if_empty="ERROR\tMISSING-RRSIG")
+
+        dnskey_response = get_packet(connection, domain_name, resolver_address, DNSPacket.RR_TYPE_DNSKEY)
+        dprint("\nDNSKEY Record Response packet:")
+        dnskey_rr_set = get_keys(dnskey_response, error_if_empty="ERROR\tMISSING-DNSKEY")
+        # dnskey_response.dump()
+        dnskey_rrsig_set = get_rrsigs(dnskey_response, error_if_empty="ERROR\tMISSING-RRSIG")
+
+        if validate_RRSET(dnskey_rr_set, dnskey_rrsig_set, dnskey_rr_set, domain_name) is None:
+            dprint("ERROR cannot validate dnskey rrset")
+            print("ERROR\tINVALID-RRSIG")
+            sys.exit(1)
+
+        associated_rrsig = validate_RRSET(dnskey_rr_set, ds_rrsig_set, ds_rr_set, domain_name)
+        for ds_record in ds_rr_set:
+            if associated_rrsig is not None:
+                print("DS\t(DS: keytag={0})\t(RRSIG: tag={1}) VALID".format(ds_record.key_id, associated_rrsig.tag))
+            else:
+                print("DS\t(DS: keytag={0})\t(RRSIG: NONE) INVALID".format(ds_record.key_id))
 
 
 
@@ -118,37 +155,43 @@ def get_packet(connection, domain_name, resolver_address, type):
 """
 Pulls DNSKEYs out of a response packet
 """
-def get_keys(dnskey_response, error_if_empty=False):
+def get_keys(dnskey_response, error_if_empty="="):
     keys = []
     for answer in dnskey_response.answers:
         if answer.type == DNSPacket.RR_TYPE_DNSKEY:
             keys.append(answer)
-    if error_if_empty == True  and  len(keys) == 0:
-        print("ERROR\tMISSING-DNSKEY")
+    if error_if_empty != ""  and  len(keys) == 0:
+        print(error_if_empty)
         sys.exit(1)
     return keys
 
 """
 Pulls out the RRSIGs from a response packet
 """
-def get_rrsigs(response, error_if_empty=False):
+def get_rrsigs(response, error_if_empty=""):
     rrsig_set = []
     for answer in response.answers:
         if answer.type == DNSPacket.RR_TYPE_RRSIG:
             rrsig_set.append(answer)
+    if error_if_empty != ""  and  len(rrsig_set) == 0:
+        print(error_if_empty)
+        sys.exit(1)
     return rrsig_set
 
 """
 Pulls out the RRSET which was signed from a response packet
 """
-def get_rrset(response, error_if_empty=False):
+def get_rrset(response, error_if_empty=""):
     rr_set = []
     for answer in response.answers:
         if answer.type != DNSPacket.RR_TYPE_RRSIG:
             rr_set.append(answer)
+    if error_if_empty != ""  and  len(rr_set) == 0:
+        print(error_if_empty)
+        sys.exit(1)
     return rr_set
 
-def validate_A_record(keys, rrsig_set, rr_set, domain_name):
+def validate_RRSET(keys, rrsig_set, rr_set, domain_name):
     ## ==== TO DO: The RRset needs to be sorted into canonical order. May get the wrong answer otherwise. That should just mean calling sort with the right arguments here
     # https://tools.ietf.org/html/rfc4034#section-3.1.8.1
     # https://tools.ietf.org/html/rfc4034#section-3.1.8.1
@@ -166,18 +209,18 @@ def validate_A_record(keys, rrsig_set, rr_set, domain_name):
     for sig in rrsig_set:
         if sig.algorithm != DNSPacket.ALGO_TYPE_RSASHA256:
             dprint("ERROR\tUNKNOWN ALGORITHM", sig.algorithm)
-            return False
+            return None
         rrset_data = crypto.createRRSetHash(rr_set, sig, domain_name)
         for key in keys:
             if crypto.verify_signature(sig.signature, key, rrset_data):
                 return sig
-    return False
+    return None
 
 
 #####  TO DO:  ####
 # This should validate the DNSKEY reponse we get by checking the RRset against the RRsig(s). Possibly this and the a set validation can just be done with 1 function? "validate_RRSET"
-def validate_DNSKEY_record(keys, rr_set, domain_name, parent_domain):
-    pass
+#def validate_DNSKEY_record(keys, rr_set, domain_name, parent_domain):
+#    pass
     """
     #dprint("\n\n\nGetting DS record from {}".format(parent_domain))
     # Now, fetch DS record from parent zone:
@@ -198,7 +241,7 @@ def validate_DNSKEY_record(keys, rr_set, domain_name, parent_domain):
 """
 Attempts to verify the public key of the given zone by establishing PKI from root
 """
-def verifyZone(domain_name, connection, resolver_address):
+def verify_zone(domain_name, connection, resolver_address):
     split_domain = domain_name.split('.')
     for i in range(len(split_domain)):
         cur_domain = '.'.join(split_domain[i:])
