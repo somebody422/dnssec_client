@@ -23,8 +23,8 @@ class UDPCommunication:
     def sendPacket(self, addr, packet):
         self.addr = addr
         self.data = packet.bytes
-        print("Query Packet:")
-        dump_packet(self.data)
+        #print("Query Packet:")
+        #dump_packet(self.data)
         self.sock.sendto(self.data, addr)
 
     def waitForPacket(self):

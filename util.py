@@ -9,6 +9,15 @@ from datetime import datetime
 import struct
 
 
+
+# A global variable, which can be set from main
+debug_print_enabled = False
+# An asterisk here gathers up arguments into a list
+def dprint(*args):
+    if debug_print_enabled:
+        # Asterisk here unpacks a list into arguments
+        print(*args)
+
 def insertBytes(ba, b, index):
     for i in range(index, min(len(ba), len(b) + index)):
         ba[i] = b[i - index]

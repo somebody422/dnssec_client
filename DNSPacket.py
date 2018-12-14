@@ -186,6 +186,12 @@ class DNSPacket:
     def dump(self):
         dump_packet(self.bytes)
 
+    def print(self):
+        print("Answers:")
+        for record in self.answers:
+            print("\t",record)
+
+
     def parse_header(self, b, packet_id=0):
         # First parse out the header
         self.id = int.from_bytes(b[:2], 'big')
