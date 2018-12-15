@@ -3,27 +3,36 @@ Small utility functions which don't have a home :(
 
 """
 
-
-# Replaces values in bytearray with values from bytes, starting at index
 from datetime import datetime
 import struct
 
-
-
 # A global variable, which can be set from main
 debug_print_enabled = False
-# An asterisk here gathers up arguments into a list
+
+
 def dprint(*args):
     if debug_print_enabled:
-        # Asterisk here unpacks a list into arguments
         print(*args)
 
+
 def insertBytes(ba, b, index):
+    """
+    Inserts bytes into a bytearray
+    :param ba: byte array
+    :param b: bytes
+    :param index: index to start at
+    :return: None
+    """
     for i in range(index, min(len(ba), len(b) + index)):
         ba[i] = b[i - index]
 
 
 def bytes_to_str(data):
+    """
+    Converts bytes to a string with .'s at non lowercase letter characters
+    :param data: The bytes
+    :return: The string
+    """
     s = ""
     for bit in data:
         if chr(bit) < ' ' or bit >= 127:
@@ -63,6 +72,11 @@ def dump_packet(data):
 
 
 def skip_name(bytes):
+    """
+    Returns the length of a name from a DNS record
+    :param bytes: The bytes of the DNS record starting at the name
+    :return: The number of bytes to skip
+    """
     i = 0
     if (bytes[i] >> 6) == 0b11:
         # If the first two bits of the 'name' field are 1, then there is a pointer here, not the actual name.
@@ -80,10 +94,15 @@ def skip_name(bytes):
 
 
 def parse_name(bytes):
+    """
+    Parses a name in a DNS record
+    :param bytes: The bytes of the record starting at the name
+    :return: A tuple containing the length of the name and the name
+    """
     i = 0
     if (bytes[i] >> 6) == 0b11:
         # Name is stored as a 2-byte pointer. We will just ignore this for now
-        domain = bytes[i:i+2]
+        domain = bytes[i:i + 2]
         i += 2
     else:
         # Not a pointer.. parse out the string
@@ -106,4 +125,5 @@ def parse_name(bytes):
 
 
 def ts_to_dt(ts):
+    # timestamp to datetime
     return datetime.fromtimestamp(struct.unpack("!I", ts)[0])

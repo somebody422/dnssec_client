@@ -1,10 +1,9 @@
 """
 Represents a DNS packet. Will build a query to send to server, or parse through a server's response.
 """
-import struct
 
-from records.Record import parse_record
 import records.Record
+from records.Record import parse_record
 from util import *
 
 RCODE = {0: 'No error. The request completed successfully.',
@@ -36,6 +35,12 @@ class DNSPacket:
     RR_TYPE_DNSKEY = 48
     RR_TYPE_DS = 43
     RR_TYPE_RRSIG = 46
+
+    record_type_name = {RR_TYPE_A: "A",
+                        RR_TYPE_CNAME: "CNAME",
+                        RR_TYPE_DNSKEY: "DNSKEY",
+                        RR_TYPE_DS: "DS",
+                        RR_TYPE_RRSIG: "RRSIG"}
 
     # https://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml
     ALGO_TYPE_RSASHA1 = 5
@@ -129,7 +134,7 @@ class DNSPacket:
         count = 0
         for _ in range(self.num_answers):
             result = parse_record(b[count:])
-            if isinstance(result[1], records.Record.RRSigRecord):
+            if isinstance(result[1], records.Record.RRSigRecord) and len(result[1].signer_name) == 2:
                 result[1].signer_name = self.name
             elif len(result[1].name) == 2:
                 result[1].name = self.expand_name(b, result[1].name)
@@ -151,9 +156,11 @@ class DNSPacket:
             num_additional,
         )
 
-    # Builds and returns an OPT RR record. The record can then be copied into the main buffer.
     def createOptRecord(self):
-        # TODO: the name should be "0 (root domain)", does that just mean a 1-byte zero?
+        """
+        Builds and returns an OPT RR record. The record can then be copied into the main buffer.
+        :return: OPT RR record
+        """
         return struct.pack(
             '!BHHHHH',  # I am not including the RDATA field!
             # name label. In this case we are referring to the "root domain", which means a 0-length string
@@ -162,7 +169,7 @@ class DNSPacket:
             # This is the "Class" field. In opt records it is used for the requested UDP payload size.
             # Up this if there are fragmentation issues
             4024,
-            0, # Sets ERcode and EDNS0 version to 0 (no idea what they are for)
+            0,  # Sets ERcode and EDNS0 version to 0 (no idea what they are for)
             # This is the "TTL" field. In opt records the D0 flag goes here, and the rest is zero'd
             0x8000,
             0,  # length of RDATA section
@@ -189,10 +196,15 @@ class DNSPacket:
     def print(self):
         dprint("Answers:")
         for record in self.answers:
-            dprint("\t",record)
-
+            dprint("\t", record)
 
     def parse_header(self, b, packet_id=0):
+        """
+        Parses the header of a DNS packet
+        :param b: The bytes of the packet
+        :param packet_id: The expected packet ID
+        :return: The packet
+        """
         # First parse out the header
         self.id = int.from_bytes(b[:2], 'big')
         if packet_id != 0 and self.id != packet_id:
@@ -229,8 +241,6 @@ class DNSPacket:
 
     def expand_name(self, data, pointer):
         return self.name
-
-
 
 # For testing
 # if __name__ == '__main__':
