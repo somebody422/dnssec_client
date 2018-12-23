@@ -1,3 +1,5 @@
+# Note: This repo is a public copy of a project done for Data Communication and Networks (CSCI-351) in fall 2018
+
 # data_comm_project4
 
 * Sam Hedin
